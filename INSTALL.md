@@ -8,11 +8,13 @@ Katsuji 是浏览器端脚本：在标点外侧插入 `ts-gap`，再做避头避
 
 任选一种方式拿到 `katsuji.css`、`katsuji.js`（以及可选的 `pretext-bridge.standalone.js`）。
 
-| 文件 | 必需 | 说明 |
-|------|------|------|
-| `katsuji.css` | 是 | `ts-gap` 等样式 |
-| `katsuji.js` | 是 | 主逻辑，`window.Katsuji` |
-| `pretext-bridge.standalone.js` | 否 | 可选；用 [pretext](https://github.com/chenglou/pretext) 做更快、更省资源的字宽测量 |
+
+| 文件                             | 必需  | 说明                                                                |
+| ------------------------------ | --- | ----------------------------------------------------------------- |
+| `katsuji.css`                  | 是   | `ts-gap` 等样式                                                      |
+| `katsuji.js`                   | 是   | 主逻辑，`window.Katsuji`                                              |
+| `pretext-bridge.standalone.js` | 否   | 可选；用 [pretext](https://github.com/chenglou/pretext) 做更快、更省资源的字宽测量 |
+
 
 ### npm
 
@@ -122,11 +124,13 @@ npm install katsuji
 
 先 `npm run build`，再 `npm run demo`：
 
-| 页面 | 说明 |
-|------|------|
-| [examples/static.html](examples/static.html) | 最小静态页 |
+
+| 页面                                                           | 说明                     |
+| ------------------------------------------------------------ | ---------------------- |
+| [examples/static.html](examples/static.html)                 | 最小静态页                  |
 | [examples/static-pretext.html](examples/static-pretext.html) | 带 pretext bridge（快速字宽） |
-| [examples/demo.html](examples/demo.html) | 调试面板 |
+| [examples/demo.html](examples/demo.html)                     | 调试面板                   |
+
 
 ---
 
@@ -159,3 +163,4 @@ Katsuji.measureRootVisualLines(root);
 Katsuji.measureLineVisualMetricsPx(block, items, start, end);
 Katsuji.setCharWidthMeasurer(fn);
 ```
+
