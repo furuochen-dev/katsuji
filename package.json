@@ -1,7 +1,7 @@
 {
   "name": "katsuji",
-  "version": "0.1.0",
-  "description": "CJKV browser typesetting: punctuation gaps, hang avoidance, line surplus",
+  "version": "0.1.1",
+  "description": "CJKV Automatic Dynamic Typesetting Engine",
   "private": false,
   "type": "module",
   "repository": {
