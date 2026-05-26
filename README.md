@@ -191,4 +191,15 @@ npm run demo           # http://localhost:4173/examples/demo.html
 
 PR 只跑构建校验，不更新 `gh-pages`。
 
-可选：**Settings → Pages → Deploy from branch → `gh-pages` / `/`**，用 `https://furuochen-dev.github.io/katsuji/katsuji.js` 访问（jsDelivr 不依赖 Pages）。
+### GitHub Pages 设置（可选）
+
+若要用 `https://furuochen-dev.github.io/katsuji/` 浏览文件，在 **Settings → Pages** 里：
+
+| 项 | 应选 |
+|----|------|
+| Source | **Deploy from a branch**（不要选 GitHub Actions / Jekyll） |
+| Branch | **`gh-pages`**，文件夹 **`/ (root)`** |
+
+不要选 `main` 或 `/docs`——仓库没有 Jekyll 站点，那样会触发 **pages build and deployment** 失败（找 `./docs` 目录）。
+
+CI 会在 `gh-pages` 根目录写入 `.nojekyll`，只托管 `katsuji.js` 等静态文件。jsDelivr **不依赖** Pages 是否开启。
