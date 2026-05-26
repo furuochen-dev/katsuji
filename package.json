@@ -5,15 +5,14 @@
   "private": false,
   "type": "module",
   "scripts": {
-    "typeset:manifest": "node scripts/typeset-manifest.mjs",
     "build": "npm run build:katsuji && npm run build:pretext",
     "build:katsuji": "node scripts/bundle-katsuji.mjs",
     "build:pretext": "node scripts/bundle-pretext-bridge.mjs",
-    "predemo": "node scripts/typeset-manifest.mjs",
-    "demo": "npx --yes serve . -p 4173",
-    "demo:bundle": "npm run build && npx --yes serve . -p 4173"
+    "dev": "node scripts/dev.mjs",
+    "demo": "npx --yes serve . -p 4173"
   },
   "devDependencies": {
-    "@chenglou/pretext": "^0.0.7"
+    "@chenglou/pretext": "^0.0.7",
+    "esbuild": "^0.25.0"
   }
 }

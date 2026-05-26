@@ -1,28 +1,17 @@
-# 模块目录
+# Katsuji 源码模块
 
-顺序见仓库根目录 `scripts/list-module-files.mjs` → `MODULE_ORDER`。构建输出在 `dist/`。
+对外入口：`src/katsuji/index.js`（按依赖顺序 import 各文件）。
+
+构建：`npm run build:katsuji`（esbuild → `dist/katsuji.js`）  
+开发：`npm run dev`（监听重建）
+
+## 目录
 
 ```
-modules/
-  core/
-    punct-wrap.js     半角标点 span 包/拆（ts-half-punct 等）
-  text/
-    punctuation-rules.js
-
-  measure/            只读量宽
-
-  process/
-    preprocess/
-      line-break.js   容器 line-break: anywhere
-      segmenter.js    插入 ts-gap，分段 char/gap；清 gap 样式
-      combo.js        组合符号固定 margin
-    postprocess/
-      process-punct.js
-      surplus.js
-    orchestrate.js
+preprocess/   line-break、segmenter（插 gap）、combo
+measure/      段落结构、gap 量宽、行宽
+postprocess/  process-punct、surplus
+process/      orchestrate
 ```
 
-- **`Katsuji.apply`** → `Segmenter.apply`（先插 gap）
-- **`applyHangAvoidance`** → 需已 apply；用 gap 拉 margin，必要时 `PunctWrap` 包半角字
-
-构建：`npm run build:katsuji`
+各文件为 IIFE，挂载到共享的 `KatsujiInternal`；`99-export.js` 暴露全局 `Katsuji`。
