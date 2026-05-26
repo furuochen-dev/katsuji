@@ -35,15 +35,15 @@ jobs:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist
 
-      - uses: actions/checkout@v4
-
-      # 避免 GitHub Pages 把静态 js 当 Jekyll 站去编（无需 /docs）
-      - run: |
+      - name: Add Pages index and .nojekyll
+        run: |
           touch dist/.nojekyll
           cp pages/index.html dist/index.html
 
