@@ -202,4 +202,11 @@ PR 只跑构建校验，不更新 `gh-pages`。
 
 不要选 `main` 或 `/docs`——仓库没有 Jekyll 站点，那样会触发 **pages build and deployment** 失败（找 `./docs` 目录）。
 
-CI 会在 `gh-pages` 根目录写入 `.nojekyll`，只托管 `katsuji.js` 等静态文件。jsDelivr **不依赖** Pages 是否开启。
+CI 会在 `gh-pages` 根目录写入 `.nojekyll` 与 **`index.html`**（Pages 首页 demo）。jsDelivr **不依赖** Pages 是否开启。
+
+| URL | 说明 |
+|-----|------|
+| https://furuochen-dev.github.io/katsuji/ | Pages 首页（在线 demo） |
+| https://furuochen-dev.github.io/katsuji/katsuji.js | 直接下载脚本 |
+
+根路径 `/katsuji/` 以前会 404，是因为只有 js/css、没有 `index.html`。

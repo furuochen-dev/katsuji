@@ -40,8 +40,12 @@ jobs:
           name: dist
           path: dist
 
+      - uses: actions/checkout@v4
+
       # 避免 GitHub Pages 把静态 js 当 Jekyll 站去编（无需 /docs）
-      - run: touch dist/.nojekyll
+      - run: |
+          touch dist/.nojekyll
+          cp pages/index.html dist/index.html
 
       - name: Publish dist to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
