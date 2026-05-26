@@ -1,6 +1,6 @@
 # 安装与使用
 
-Katsuji 是浏览器端脚本：在标点外侧插入 `ts-gap`，再做避头避尾与行宽余量。挂载全局 **`Katsuji`**。
+Katsuji 是浏览器端脚本：在标点外侧插入 `ts-gap`，再做避头避尾与行宽余量。挂载全局 `**Katsuji**`。
 
 ---
 
@@ -101,7 +101,7 @@ npm install katsuji
 
 ### 可选：快速字宽测量
 
-默认用 DOM 逐字测量，准确但较慢。需要更好性能时，在 **`katsuji.js` 之后** 再引 `pretext-bridge.standalone.js`（本地路径或 CDN 均可）；内部通过 [pretext](https://github.com/chenglou/pretext) 量宽，比 DOM 更省开销：
+默认用 DOM 逐字测量，准确但较慢。需要更好性能时，在 `**katsuji.js` 之后** 再引 `pretext-bridge.standalone.js`（本地路径或 CDN 均可）；内部通过 [pretext](https://github.com/chenglou/pretext) 量宽，比 DOM 更省开销：
 
 ```html
 <script src="katsuji.js"></script>
