@@ -12,7 +12,7 @@ Katsuji 是浏览器端脚本：在标点外侧插入 `ts-gap`，再做避头避
 |------|------|------|
 | `katsuji.css` | 是 | `ts-gap` 等样式 |
 | `katsuji.js` | 是 | 主逻辑，`window.Katsuji` |
-| `pretext-bridge.standalone.js` | 否 | 与 [pretext](https://github.com/chenglou/pretext) 对齐字宽时用 |
+| `pretext-bridge.standalone.js` | 否 | 可选；用 [pretext](https://github.com/chenglou/pretext) 做更快、更省资源的字宽测量 |
 
 ### npm
 
@@ -33,7 +33,7 @@ npm install katsuji
 <script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.0/dist/katsuji.js"></script>
 ```
 
-pretext bridge：
+字宽 bridge（可选）：
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.0/dist/pretext-bridge.standalone.js"></script>
@@ -97,9 +97,9 @@ pretext bridge：
 
 `apply` / `applyHangAvoidance` 写法不变。
 
-### 可选：pretext 字宽
+### 可选：快速字宽测量
 
-默认 DOM 量字宽。要与 pretext 一致时，在 **`katsuji.js` 之后** 再引 bridge（本地文件名或 CDN 的 `pretext-bridge.standalone.js`）：
+默认用 DOM 逐字测量，准确但较慢。需要更好性能时，在 **`katsuji.js` 之后** 再引 `pretext-bridge.standalone.js`（本地路径或 CDN 均可）；内部通过 [pretext](https://github.com/chenglou/pretext) 量宽，比 DOM 更省开销：
 
 ```html
 <script src="katsuji.js"></script>
@@ -111,7 +111,7 @@ pretext bridge：
 </script>
 ```
 
-加载 bridge 后会自动注册 `Katsuji.setCharWidthMeasurer`。
+加载后会自动注册 `Katsuji.setCharWidthMeasurer`，排版逻辑与未加载时相同。
 
 ### 路径与多页
 
@@ -125,7 +125,7 @@ pretext bridge：
 | 页面 | 说明 |
 |------|------|
 | [examples/static.html](examples/static.html) | 最小静态页 |
-| [examples/static-pretext.html](examples/static-pretext.html) | 带 pretext |
+| [examples/static-pretext.html](examples/static-pretext.html) | 带 pretext bridge（快速字宽） |
 | [examples/demo.html](examples/demo.html) | 调试面板 |
 
 ---
