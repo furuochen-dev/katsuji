@@ -27,8 +27,3 @@ npm run demo           # http://localhost:4173/examples/demo.html
 | `npm run build:katsuji` | 仅主库 |
 | `npm run build:pretext` | 仅 pretext bridge |
 | `npm run dev` | watch `dist/katsuji.js` |
-
-### 发布 npm
-
-- 首次：本地 `npm login` → `npm publish --access public`（`prepublishOnly` 会先 `build`）。
-- 之后：改 `package.json` 的 `version`，提交后打 tag 并推送，例如 `v0.1.1` 对应 `"version": "0.1.1"`，由 [publish-npm.yml](.github/workflows/publish-npm.yml) 发布。仓库 Settings → Secrets 需配置 **`NPM_TOKEN`**（npm 上创建 **Automation** 或 **Publish** token）。
