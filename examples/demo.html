@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>标点外侧标记 · Demo</title>
+    <style>
+      :root {
+        font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        line-height: 1.75;
+        color: #1a1a1a;
+        background: #f6f4ef;
+      }
+      body {
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1.25rem 3rem;
+      }
+      h1 {
+        font-weight: 600;
+        font-size: 1.35rem;
+        letter-spacing: 0.02em;
+      }
+      .note {
+        font-size: 0.9rem;
+        color: #555;
+        margin: 0.5rem 0 1.5rem;
+      }
+      .width-control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.65rem 1rem;
+        margin: 0 0 1.25rem;
+        padding: 0.65rem 0.85rem;
+        background: #ebe6dc;
+        border-radius: 8px;
+        border: 1px solid #dcd4c8;
+        font-size: 0.875rem;
+        color: #333;
+      }
+      .width-control label {
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .width-control input[type='range'] {
+        flex: 1 1 12rem;
+        min-width: 8rem;
+        max-width: 22rem;
+        vertical-align: middle;
+      }
+      .width-control output {
+        font-variant-numeric: tabular-nums;
+        min-width: 4.5em;
+        color: #1a1a1a;
+      }
+      .width-control .hang-debug {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        white-space: nowrap;
+      }
+      #content {
+        background: #fff;
+        border: 1px solid #e3ddd0;
+        border-radius: 10px;
+        padding: 1.25rem 1.35rem;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+        /* 默认与滑块一致，具体值由脚本同步 */
+        max-width: 30em;
+      }
+      #content p {
+        margin: 0 0 1em;
+        /* 允许在任意字间断行，便于出现「行首标点」以验证避头（正式环境可去掉） */
+        overflow-wrap: anywhere;
+      }
+      #content p:last-child {
+        margin-bottom: 0;
+      }
+      /* Demo：ts-gap 为零宽 inline-box（始终启用，保证 padding/margin 生效） */
+      #content.marked span.ts-gap {
+        display: inline-block;
+        vertical-align: baseline;
+        width: 0;
+        min-height: 1ex;
+        box-sizing: content-box;
+      }
+      /* 空隙预览：黄/蓝框、半角 span 描边、margin 色带（可关） */
+      #content.marked.gap-preview span.ts-gap {
+        outline: 1px dashed rgba(200, 120, 0, 0.45);
+        outline-offset: 0;
+        background: rgba(255, 230, 160, 0.22);
+        border-radius: 2px;
+      }
+      #content.marked.gap-preview span.ts-gap-combo {
+        outline-color: rgba(80, 120, 200, 0.5);
+        background: rgba(200, 220, 255, 0.25);
+      }
+      #content.marked.gap-preview span.ts-half-punct {
+        outline: 1px dashed rgba(180, 60, 120, 0.55);
+        outline-offset: 1px;
+        background: rgba(255, 210, 230, 0.2);
+      }
+      #content.marked.gap-preview span.ts-line-end-half {
+        outline-color: rgba(60, 140, 180, 0.55);
+        background: rgba(210, 235, 255, 0.22);
+      }
+      #line-width-panel {
+        margin: 1.25rem 0 0;
+        padding: 0.85rem 1rem;
+        background: #fff;
+        border: 1px solid #e3ddd0;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        line-height: 1.5;
+        color: #444;
+        max-height: 14rem;
+        overflow: auto;
+      }
+      #line-width-panel h2 {
+        margin: 0 0 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1a1a1a;
+      }
+      #line-width-panel .lw-block {
+        margin: 0 0 0.65rem;
+      }
+      #line-width-panel .lw-block:last-child {
+        margin-bottom: 0;
+      }
+      #line-width-panel .lw-line {
+        font-variant-numeric: tabular-nums;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>单脚本标点外侧占位</h1>
+    <p class="note" style="margin-top: 0">
+      静态站分发请看 <a href="static.html">static.html</a>（<code>dist/</code> 下 js + css）。本页为开发调试，默认加载 <code>src/katsuji/modules/</code>；加 <code>?bundle=1</code> 测 <code>dist/katsuji.js</code>。
+    </p>
+    <div class="width-control">
+      <label for="content-width">文字框最大宽度</label>
+      <input id="content-width" type="range" min="8" max="48" value="30" step="1" />
+      <output id="content-width-val" for="content-width">30em</output>
+      <label class="hang-debug">
+        <input id="hang-debug-push" type="checkbox" />
+        调试推出（整字）
+      </label>
+      <label class="hang-debug">
+        <input id="gap-preview" type="checkbox" checked />
+        显示空隙预览框
+      </label>
+      <label class="hang-debug">
+        <input id="use-pretext" type="checkbox" checked />
+        用 pretext 量字宽
+      </label>
+    </div>
+    <p class="note">
+      中文排版里浏览器会按禁则类规则断行（接近 <code>line-break: strict</code>），常<strong>整字挪到行尾</strong>，行首几乎不会出现禁则标点，于是本脚本的「检测到行首禁则再调
+      <code>ts-gap</code>」永远不触发。<code>Katsuji.applyHangAvoidance()</code> 默认会在容器上设 <code>line-break: anywhere</code>，先<strong>关掉这类 UA 断行约束</strong>，再用我们自己的
+      <code>ts-gap</code>：句读、闭括号等<strong>之后</strong>；左括、左引、《 等<strong>之前</strong>（外侧，带 <code>data-ts-open-gap</code>）。<strong>组合符号</strong>（<code>N+L</code>、<code>R+N</code>、<code>R+L</code>、<code>N+N</code>）会把当中空隙改为 <code>margin-left:-0.5em</code> 不可变（蓝框）。避头为上一行可调空各 <code>1/n em</code>；避尾分母 <code>n</code> 含全部空隙，仅对可调空写 <code>1/(n-1)em</code>。若需恢复 UA 行为：<code>Katsuji.unrelaxBuiltinLineBreak(el)</code>；若不想改容器样式：<code>applyHangAvoidance(el, { relaxBuiltinLineBreak: false })</code>。
+    </p>
+
+    <article id="content">
+      <p>
+        他说，《红楼梦》是一部奇书，而「脂砚斋」批语更让读者着迷：你怎么看？
+      </p>
+      <p>
+        会议议题有三项：「进说啊啊啊度汇报、风险排查、以及下阶段计划（含预算）请准时参加！：「请相啊信啊我，亲爱的先生：在大颠帝国中，再也没有比我更衷心是支持与母啊国联合的人了」。但以造物主之名，我宁愿死去」，也不会接受如今英国议会所提之条件」「我相信是这正是美洲的共同心声。
+      </p>
+      <p>
+        会议议题有三项：进说啊啊啊度汇报、Hello风险排查、以及下阶段计划（含预算）请准时参加！请相啊信啊我，亲爱的先生：在Hello大颠帝国中，再也没有比我更衷心是支持与母啊国联合的人了」但以造物主之名，我宁愿死去」也不会接受如今英国议会所提之条件」我相信是这正是美洲的共同心声。
+      </p>
+      <p>
+        会议议题有三项：进说啊啊啊度汇报、风险排查、以及下阶段计划（含预算）请准时参加！请相啊信啊我，亲爱的先生：在大颠帝国中，再也没有比我更衷心是支持与母啊国联合的人了」但以造物主之名，我宁愿死去」也不会接受如今英国议会所提之条件」我相信是这正是美洲的共同心声。
+      </p>
+      <p>
+        水果摊上有苹果、香蕉、橘子，价格不贵，味道也好……
+      </p>
+    </article>
+
+    <aside id="line-width-panel" aria-live="polite">
+      <h2 id="line-width-title">行宽分解（字 / 空 / 半 / 合）</h2>
+      <p class="note" id="line-width-note" style="margin: 0">
+        与 <code>measureLineVisualMetricsPx</code> 同源：<strong>合</strong> = 字 + 空 − <strong>半</strong>（pretext 整字 − 0.5em 盒/行尾 span 占位，每 span 计一次）。
+      </p>
+      <div id="line-width-out"></div>
+    </aside>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "@chenglou/pretext": "https://cdn.jsdelivr.net/npm/@chenglou/pretext@0.0.7/dist/layout.js"
+        }
+      }
+    </script>
+    <script src="load-typeset.js"></script>
+    <script type="module" src="../src/pretext/pretext-bridge.js"></script>
+    <script type="module">
+      import { attachPretextLineWidth, detachPretextLineWidth } from '../src/pretext/pretext-bridge.js';
+
+      function whenTypesetReady(fn) {
+        function run() {
+          if (!window.Katsuji) {
+            console.error('[demo] Katsuji missing after load');
+            return;
+          }
+          fn();
+        }
+        if (window.__katsujiReady && window.Katsuji) {
+          run();
+          return;
+        }
+        window.addEventListener('katsuji-ready', run, { once: true });
+      }
+
+      whenTypesetReady(function initDemo() {
+        var el = document.getElementById('content');
+        var slider = document.getElementById('content-width');
+        var out = document.getElementById('content-width-val');
+        var lwOut = document.getElementById('line-width-out');
+        var hangDebugPush = document.getElementById('hang-debug-push');
+        var gapPreview = document.getElementById('gap-preview');
+        var usePretext = document.getElementById('use-pretext');
+        var lwTitle = document.getElementById('line-width-title');
+        var lwNote = document.getElementById('line-width-note');
+        el.classList.add('marked');
+
+        function syncPretextMeasurer() {
+          var on = !usePretext || usePretext.checked;
+          if (on) attachPretextLineWidth(window.Katsuji);
+          else detachPretextLineWidth(window.Katsuji);
+          if (lwTitle) {
+            lwTitle.textContent = '行宽分解（字 / 空 / 半 / 合）· em';
+          }
+          if (lwNote) {
+            lwNote.innerHTML = on
+              ? '字 = pretext；空 = ts-gap pm；半 = 半角 span 修正；合 = 字+空−半。'
+              : '未注入 pretext：字 = DOM 逐字 rect；半 = 逐字 rect 备用 − 0.5em 盒。';
+          }
+        }
+        syncPretextMeasurer();
+        if (gapPreview && gapPreview.checked) el.classList.add('gap-preview');
+        Katsuji.apply(el);
+
+        function syncGapPreviewClass() {
+          if (!gapPreview) return;
+          if (gapPreview.checked) el.classList.add('gap-preview');
+          else el.classList.remove('gap-preview');
+        }
+
+        function hangOptions() {
+          return {
+            hang: { debugWholeCharPush: !!(hangDebugPush && hangDebugPush.checked) },
+          };
+        }
+
+        function paintGapDemoMarks(container) {
+          var gaps = container.querySelectorAll('span.ts-gap');
+          for (var i = 0; i < gaps.length; i++) {
+            var g = gaps[i];
+            if (!gapPreview || !gapPreview.checked) {
+              g.style.boxShadow = '';
+              g.removeAttribute('title');
+              continue;
+            }
+            var cs = getComputedStyle(g);
+            var ml = parseFloat(cs.marginLeft) || 0;
+            var pl = parseFloat(cs.paddingLeft) || 0;
+            var shadow = '';
+            if (ml > 0) {
+              shadow = -ml + 'px 0 0 ' + ml + 'px rgba(255, 230, 160, 0.38)';
+            } else if (ml < 0) {
+              var a = -ml;
+              shadow = a + 'px 0 0 ' + a + 'px rgba(255, 230, 160, 0.38)';
+            }
+            g.style.boxShadow = shadow;
+            g.title =
+              'gap pm: ' +
+              (pl + ml).toFixed(2) +
+              'px (padding ' +
+              pl.toFixed(2) +
+              ', margin ' +
+              ml.toFixed(2) +
+              ')';
+          }
+        }
+
+        function pxToEm(px, emPx) {
+          return emPx > 0 ? px / emPx : 0;
+        }
+
+        function trimEmNum(em) {
+          return em.toFixed(2).replace(/\.?0+$/, '');
+        }
+
+        function fmtEm(px, emPx) {
+          return trimEmNum(pxToEm(px, emPx)) + 'em';
+        }
+
+        function renderLineWidths() {
+          if (!lwOut || !Katsuji.measureRootVisualLines) return;
+          var blocks = Katsuji.measureRootVisualLines(el);
+          var html = '';
+          for (var b = 0; b < blocks.length; b++) {
+            var entry = blocks[b];
+            var preview = (entry.block.textContent || '').trim().slice(0, 28);
+            if ((entry.block.textContent || '').trim().length > 28) preview += '…';
+            var blockEmPx = entry.emPx > 0 ? entry.emPx : 1;
+            html +=
+              '<div class="lw-block"><strong>段落 ' +
+              (b + 1) +
+              '</strong> ' +
+              preview +
+              ' · 满行 ' +
+              trimEmNum(entry.maxEm) +
+              'em<br>';
+            for (var i = 0; i < entry.lines.length; i++) {
+              var line = entry.lines[i];
+              var charPx = line.charWidthPx != null ? line.charWidthPx : 0;
+              var gapPx = line.gapPmPx != null ? line.gapPmPx : 0;
+              var halfPx = line.halfEmCharAdjustPx != null ? line.halfEmCharAdjustPx : 0;
+              var comboPx = line.comboFixedPmPx != null ? line.comboFixedPmPx : 0;
+              var sumEm = pxToEm(charPx + gapPx - halfPx, blockEmPx);
+              var lineEm =
+                line.lineVisualEm != null ? line.lineVisualEm : pxToEm(line.lineWidthPx, blockEmPx);
+              var sumMismatch = Math.abs(sumEm - lineEm) > 0.01;
+              var halfStyle =
+                halfPx > blockEmPx * 0.01
+                  ? ' style="color:#9d174d;font-weight:600"'
+                  : ' style="opacity:0.65"';
+              html +=
+                '<span class="lw-line">L' +
+                (line.lineIndex + 1) +
+                ': <strong>字</strong> ' +
+                (line.charWidthPx != null ? fmtEm(charPx, blockEmPx) : '?') +
+                ' · <strong>空</strong> ' +
+                fmtEm(gapPx, blockEmPx) +
+                ' <span style="opacity:0.75">(combo ' +
+                fmtEm(comboPx, blockEmPx) +
+                ')</span> · <strong>半</strong><span' +
+                halfStyle +
+                '>' +
+                fmtEm(halfPx, blockEmPx) +
+                '</span> · <strong>合</strong> ' +
+                trimEmNum(lineEm) +
+                'em' +
+                (sumMismatch
+                  ? ' <span style="color:#b45309">≠ 字+空−半 ' + trimEmNum(sumEm) + 'em</span>'
+                  : ' <span style="opacity:0.55">= 字+空−半</span>') +
+                ' · ' +
+                line.charCount +
+                ' 字</span><br>';
+            }
+            html += '</div>';
+          }
+          lwOut.innerHTML = html || '<span>（无段落）</span>';
+        }
+
+        function runHang() {
+          void el.offsetHeight;
+          Katsuji.applyHangAvoidance(el, hangOptions());
+          syncGapPreviewClass();
+          paintGapDemoMarks(el);
+          renderLineWidths();
+        }
+        function bump() {
+          requestAnimationFrame(function () {
+            requestAnimationFrame(runHang);
+          });
+        }
+        function applyWidthEm(em) {
+          el.style.maxWidth = em + 'em';
+          if (out) out.textContent = em + 'em';
+        }
+        if (slider) {
+          applyWidthEm(slider.value);
+          slider.addEventListener('input', function () {
+            applyWidthEm(slider.value);
+            bump();
+          });
+        }
+        if (hangDebugPush) {
+          hangDebugPush.addEventListener('change', bump);
+        }
+        if (gapPreview) {
+          gapPreview.addEventListener('change', function () {
+            syncGapPreviewClass();
+            paintGapDemoMarks(el);
+          });
+        }
+        if (usePretext) {
+          usePretext.addEventListener('change', function () {
+            syncPretextMeasurer();
+            bump();
+          });
+        }
+        bump();
+        window.addEventListener('load', bump, { once: true });
+        setTimeout(bump, 80);
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(bump).catch(bump);
+        }
+      });
+    </script>
+  </body>
+</html>

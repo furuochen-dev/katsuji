@@ -1,0 +1,11 @@
+/**
+ * 静态页引用 katsuji.js 时建议同时引入本文件。
+ * ts-gap 须为 inline-block 且 width:0，padding/margin 才会参与排版。
+ */
+span.ts-gap {
+  display: inline-block;
+  vertical-align: baseline;
+  width: 0;
+  min-height: 1ex;
+  box-sizing: content-box;
+}

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Katsuji — 静态页示例</title>
+    <link rel="stylesheet" href="../dist/katsuji.css" />
+    <style>
+      body {
+        font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        line-height: 1.75;
+        max-width: 36em;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      #article {
+        max-width: 28em;
+      }
+      #article p {
+        margin: 0 0 1em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>静态页用法</h1>
+    <p>
+      从仓库 <code>dist/</code> 拷贝 <code>katsuji.js</code> + <code>katsuji.css</code> 即可（先在本仓库根目录执行
+      <code>npm run build</code>）。
+    </p>
+
+    <article id="article">
+      <p>他说，《红楼梦》是一部奇书，而「脂砚斋」批语更让读者着迷：你怎么看？</p>
+      <p>水果摊上有苹果、香蕉、橘子，价格不贵，味道也好……</p>
+    </article>
+
+    <script src="../dist/katsuji.js"></script>
+    <script>
+      var root = document.getElementById('article');
+      Katsuji.apply(root);
+      Katsuji.applyHangAvoidance(root);
+    </script>
+  </body>
+</html>
