@@ -29,9 +29,5 @@ await esbuild.build({
 });
 
 fs.copyFileSync(cssSrc, cssOut);
-const pagesIndex = path.join(root, 'pages/index.html');
-if (fs.existsSync(pagesIndex)) {
-  fs.copyFileSync(pagesIndex, path.join(distDir, 'index.html'));
-}
 console.log('Wrote dist/katsuji.js');
 console.log('Wrote dist/katsuji.css');

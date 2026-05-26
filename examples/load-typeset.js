@@ -1,5 +1,5 @@
 /**
- * 加载 dist/katsuji.js（需先 npm run build 或等 GitHub Actions 构建 gh-pages）
+ * 加载 dist/katsuji.js（需先 npm run build）
  */
 (function () {
   var s = document.createElement('script');

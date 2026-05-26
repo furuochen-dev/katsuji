@@ -1,4 +1,4 @@
-# 主分支只放源码；构建产物发布到 gh-pages，并保存为 Actions artifact。
+# 校验构建；产物见 Actions artifact（不部署 GitHub Pages）。
 name: Build
 
 on:
@@ -6,9 +6,6 @@ on:
     branches: [main, master]
   pull_request:
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   build:
@@ -29,27 +26,3 @@ jobs:
           name: dist
           path: dist/
           retention-days: 90
-
-  deploy-gh-pages:
-    needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
-
-      - name: Add Pages index and .nojekyll
-        run: |
-          touch dist/.nojekyll
-          cp pages/index.html dist/index.html
-
-      - name: Publish dist to gh-pages branch
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          commit_message: 'build: update dist from GitHub Actions'

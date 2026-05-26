@@ -1,10 +1,25 @@
 {
   "name": "katsuji",
   "version": "0.1.0",
-  "description": "中文标点外侧空隙与避头避尾（浏览器脚本）",
+  "description": "CJKV browser typesetting: punctuation gaps, hang avoidance, line surplus",
   "private": false,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/furuochen-dev/katsuji.git"
+  },
+  "homepage": "https://github.com/furuochen-dev/katsuji#readme",
+  "bugs": {
+    "url": "https://github.com/furuochen-dev/katsuji/issues"
+  },
+  "files": [
+    "dist/katsuji.js",
+    "dist/katsuji.css",
+    "dist/pretext-bridge.standalone.js",
+    "dist/pretext-bridge.bundle.js"
+  ],
   "scripts": {
+    "prepublishOnly": "npm run build",
     "build": "npm run build:katsuji && npm run build:pretext",
     "build:katsuji": "node scripts/bundle-katsuji.mjs",
     "build:pretext": "node scripts/bundle-pretext-bridge.mjs",
