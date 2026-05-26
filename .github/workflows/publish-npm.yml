@@ -1,10 +1,14 @@
-# 打 tag v* 且与 package.json 版本一致时发布到 npm（需仓库 Secret: NPM_TOKEN）
+# 打 tag v* 且与 package.json 版本一致时发布到 npm（Trusted Publishing / OIDC，无需 NPM_TOKEN）
 name: Publish npm
 
 on:
   push:
     tags:
       - 'v*'
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   publish:
@@ -14,9 +18,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: https://registry.npmjs.org
-          cache: npm
 
       - run: npm ci
 
@@ -33,5 +36,3 @@ jobs:
       - run: npm run build
 
       - run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

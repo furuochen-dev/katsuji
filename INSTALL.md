@@ -4,29 +4,56 @@ Katsuji 是浏览器端脚本：在标点外侧插入 `ts-gap`，再做避头避
 
 ---
 
-## 静态网页
+## 下载
 
-适合博客、静态站、任意能写 HTML 的页面。**不依赖 npm、不依赖构建工具。**
-
-### 需要哪些文件
-
-把下面两个文件放到你的站点目录（与 HTML 同目录，或自行改路径）：
+任选一种方式拿到 `katsuji.css`、`katsuji.js`（以及可选的 `pretext-bridge.standalone.js`）。
 
 | 文件 | 必需 | 说明 |
 |------|------|------|
 | `katsuji.css` | 是 | `ts-gap` 等样式 |
 | `katsuji.js` | 是 | 主逻辑，`window.Katsuji` |
-| `pretext-bridge.standalone.js` | 否 | 仅在与 [pretext](https://github.com/chenglou/pretext) 对齐字宽时需要 |
+| `pretext-bridge.standalone.js` | 否 | 与 [pretext](https://github.com/chenglou/pretext) 对齐字宽时用 |
 
-**拿到文件的方式：**
+### npm
 
-1. 从本仓库 [Releases](https://github.com/furuochen-dev/katsuji/releases) 下载打包好的 `dist`（有发布时）。
-2. 或克隆仓库后本地构建（见文末「从源码构建」）。
-3. 或从 CI：仓库 **Actions** → 最新成功的 **Build** → 下载 **dist** artifact，解压后拷贝上述文件。
+```bash
+npm install katsuji
+```
 
-### 最小页面
+文件在 `node_modules/katsuji/dist/`。拷到你的静态资源目录，或由打包工具引用该路径。
 
-用 HTTP 访问页面（`npm run demo` 或任意静态服务器），不要用 `file://`，否则部分浏览器对脚本限制较严。
+版本见 [npm · katsuji](https://www.npmjs.com/package/katsuji)。
+
+### CDN（jsDelivr，来自 npm 包）
+
+固定版本（推荐，把 `0.1.0` 换成你要的版本）：
+
+```html
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@0.1.0/dist/katsuji.css">
+<script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.0/dist/katsuji.js"></script>
+```
+
+pretext bridge：
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.0/dist/pretext-bridge.standalone.js"></script>
+```
+
+### 本地
+
+- **[GitHub Releases](https://github.com/furuochen-dev/katsuji/releases)**：下载 `dist` 打包（有发布时）。
+- **自己构建**：克隆仓库 → `npm install` → `npm run build`，产物在 `dist/`（见 [DEVELOPMENT.md](DEVELOPMENT.md)）。
+- **CI 产物**：仓库 **Actions** → 最新 **Build** → 下载 **dist** artifact，解压后拷贝上述文件。
+
+---
+
+## 使用
+
+适合博客、静态站、任意能写 HTML 的页面。用 **HTTP** 打开（`npm run demo` 或任意静态服务器），不要用 `file://`。
+
+### 基本页面
+
+把下面里的 `katsuji.css` / `katsuji.js` 换成你**下载方式**对应的路径即可（相对路径、npm 拷出来的路径、或上一节 CDN 完整 URL）。
 
 ```html
 <!DOCTYPE html>
@@ -58,14 +85,23 @@ Katsuji 是浏览器端脚本：在标点外侧插入 `ts-gap`，再做避头避
 
 **调用顺序固定：先 `Katsuji.apply`，再 `Katsuji.applyHangAvoidance`。**
 
-### 可选：pretext 字宽
+### 用 CDN 时
 
-默认用 DOM 测量字宽。若要与 pretext 一致，在 **`katsuji.js` 之后** 再引入 bridge，调用顺序不变：
+只需把 `href` / `src` 换成 jsDelivr 地址，例如：
 
 ```html
-<link rel="stylesheet" href="katsuji.css" />
-<article id="content">…</article>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@0.1.0/dist/katsuji.css">
+<!-- … -->
+<script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.0/dist/katsuji.js"></script>
+```
 
+`apply` / `applyHangAvoidance` 写法不变。
+
+### 可选：pretext 字宽
+
+默认 DOM 量字宽。要与 pretext 一致时，在 **`katsuji.js` 之后** 再引 bridge（本地文件名或 CDN 的 `pretext-bridge.standalone.js`）：
+
+```html
 <script src="katsuji.js"></script>
 <script src="pretext-bridge.standalone.js"></script>
 <script>
@@ -75,48 +111,22 @@ Katsuji 是浏览器端脚本：在标点外侧插入 `ts-gap`，再做避头避
 </script>
 ```
 
-`pretext-bridge.standalone.js` 加载后会自动注册 `Katsuji.setCharWidthMeasurer`。
+加载 bridge 后会自动注册 `Katsuji.setCharWidthMeasurer`。
 
 ### 路径与多页
 
-- CSS、JS 可用相对路径（如上）或站点根路径绝对路径（如 `/assets/katsuji.js`）。
-- 多个文章块：对每个根节点分别 `apply` / `applyHangAvoidance`，或包一层父元素后对父元素调用一次。
-- 动态插入 DOM 后需对新内容再跑一遍上述两步。
+- 多个文章块：对每个根节点分别调用，或包一层父元素后对父元素调用一次。
+- 动态插入 DOM 后需对新内容再跑一遍 `apply` 与 `applyHangAvoidance`。
 
 ### 仓库内示例
 
-先 `npm run build`，再 `npm run demo`，浏览器打开：
+先 `npm run build`，再 `npm run demo`：
 
 | 页面 | 说明 |
 |------|------|
 | [examples/static.html](examples/static.html) | 最小静态页 |
 | [examples/static-pretext.html](examples/static-pretext.html) | 带 pretext |
 | [examples/demo.html](examples/demo.html) | 调试面板 |
-
----
-
-## npm / CDN
-
-包名 **`katsuji`**。发布到 npm 后可用 jsDelivr（与静态拷贝二选一，适合已有前端工程或不想手拷文件时）。
-
-> 版本号以 [npm](https://www.npmjs.com/package/katsuji) 为准；发版流程见 [DEVELOPMENT.md#发布-npm](DEVELOPMENT.md#发布-npm)。
-
-```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@0.1.0/dist/katsuji.css">
-<script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.0/dist/katsuji.js"></script>
-```
-
-pretext bridge：
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.0/dist/pretext-bridge.standalone.js"></script>
-```
-
-本地安装（Node 项目里拷贝到静态资源目录，或自行托管 `node_modules/katsuji/dist/` 下文件）：
-
-```bash
-npm install katsuji
-```
 
 ---
 
@@ -149,18 +159,3 @@ Katsuji.measureRootVisualLines(root);
 Katsuji.measureLineVisualMetricsPx(block, items, start, end);
 Katsuji.setCharWidthMeasurer(fn);
 ```
-
----
-
-## 从源码构建
-
-参与开发见 [DEVELOPMENT.md](DEVELOPMENT.md)。
-
-```bash
-git clone https://github.com/furuochen-dev/katsuji.git
-cd katsuji
-npm install
-npm run build
-```
-
-产物在 **`dist/`**，拷到你的静态站即可。
