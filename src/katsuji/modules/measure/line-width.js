@@ -178,17 +178,22 @@ export function measureRootVisualLines(root, selector) {
   return out;
 }
 
+/** @returns {{ em: string|null, usedPushFallback: boolean }} */
 export function hangMarginEmPerGap(layout, startIndex, endIndex, gapCount, marginOpts) {
-  if (!layout || gapCount < 1) return null;
+  var none = { em: null, usedPushFallback: false };
+  if (!layout || gapCount < 1) return none;
   marginOpts = marginOpts || {};
   var pullBaseEm = marginOpts.pullBaseEm != null ? marginOpts.pullBaseEm : 1;
   var pushBaseEm = marginOpts.pushBaseEm != null ? marginOpts.pushBaseEm : 1;
   var pushOut = marginOpts.wholeCharMaxMinusLine === true;
   var lineEm = lineVisualWidthEm(layout, startIndex, endIndex);
   var amountEm = pushOut ? pushBaseEm + layout.maxEm - lineEm : pullBaseEm + lineEm - layout.maxEm;
-  var share = pushOut ? amountEm / gapCount : -amountEm / gapCount - 0.0002;
-  if (!isFinite(share)) return null;
-  return share.toFixed(6).replace(/\.?0+$/, '') + 'em';
+  var share = pushOut ? amountEm / gapCount - 0.001: -amountEm / gapCount - 0.001;
+  if (!isFinite(share)) return none;
+  return {
+    em: share.toFixed(6).replace(/\.?0+$/, '') + 'em',
+    usedPushFallback: false,
+  };
 }
 
 export function setCharWidthMeasurer(fn) {

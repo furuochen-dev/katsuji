@@ -23,23 +23,6 @@ function applyMarginToGaps(gaps, em) {
   }
 }
 
-function headHangMarginEm(layout, rangeStart, rangeEnd, gapCount, debugWholeCharPush) {
-  var em = hangMarginEmPerGap(layout, rangeStart, rangeEnd, gapCount, {
-    pullBaseEm: 0.5,
-    pushBaseEm: 1,
-    wholeCharMaxMinusLine: debugWholeCharPush,
-  });
-  if (em || debugWholeCharPush) {
-    return { em: em, usedPushFallback: false };
-  }
-  em = hangMarginEmPerGap(layout, rangeStart, rangeEnd, gapCount, {
-    pullBaseEm: 0.5,
-    pushBaseEm: 1,
-    wholeCharMaxMinusLine: true,
-  });
-  return { em: em, usedPushFallback: !!em };
-}
-
 function tryHeadPunctOnce(layout, hangOpts) {
   var debugWholeCharPush = !!hangOpts.debugWholeCharPush;
   var items = layout.items;
@@ -68,7 +51,11 @@ function tryHeadPunctOnce(layout, hangOpts) {
       continue;
     }
 
-    var margin = headHangMarginEm(layout, prevStart, prevEnd, gaps.length, debugWholeCharPush);
+    var margin = hangMarginEmPerGap(layout, prevStart, prevEnd, gaps.length, {
+      pullBaseEm: 0.5,
+      pushBaseEm: 1,
+      wholeCharMaxMinusLine: debugWholeCharPush,
+    });
     if (!margin.em) continue;
 
     applyMarginToGaps(gaps, margin.em);
@@ -100,14 +87,14 @@ function tryTailPunctOnce(layout, hangOpts) {
     if (tailGaps.length < 1) continue;
 
     var tailRange = lineItemBounds(items, heads, T);
-    var tailEm = hangMarginEmPerGap(layout, tailRange.startIndex, tailRange.endIndex, tailGaps.length, {
+    var margin = hangMarginEmPerGap(layout, tailRange.startIndex, tailRange.endIndex, tailGaps.length, {
       pullBaseEm: 1,
       pushBaseEm: 1,
       wholeCharMaxMinusLine: debugWholeCharPush,
     });
-    if (!tailEm) continue;
+    if (!margin.em) continue;
 
-    applyMarginToGaps(tailGaps, tailEm);
+    applyMarginToGaps(tailGaps, margin.em);
     if (debugWholeCharPush && !charItemIsLineEndHalfWrapped(items[lastIdx])) {
       wrapCharAsLineEndHalf(items[lastIdx]);
     }

@@ -23,6 +23,9 @@ const ctx = await esbuild.context({
   banner: {
     js: '/** Katsuji — dev build */',
   },
+  footer: {
+    js: 'if (typeof Katsuji !== "undefined" && Katsuji.default) { Katsuji = Katsuji.default; }',
+  },
 });
 
 function copyCss() {
