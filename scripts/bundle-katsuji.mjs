@@ -26,6 +26,10 @@ await esbuild.build({
   banner: {
     js: '/** Katsuji — 中文标点外侧空隙与避头避尾 | build: npm run build:katsuji */',
   },
+  // ESM default export → IIFE 返回 { default: api }；解包为全局 Katsuji API 对象
+  footer: {
+    js: 'if (typeof Katsuji !== "undefined" && Katsuji.default) { Katsuji = Katsuji.default; }',
+  },
 });
 
 fs.copyFileSync(cssSrc, cssOut);

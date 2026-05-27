@@ -1,20 +1,53 @@
 /**
  * Katsuji 浏览器入口（esbuild → dist/katsuji.js，IIFE 全局 Katsuji）
  */
-import './modules/00-prelude.js';
-import './modules/core/config.js';
-import './modules/core/dom-util.js';
-import './modules/core/punct-wrap.js';
-import './modules/text/punctuation-rules.js';
-import './modules/measure/paragraph-items.js';
-import './modules/measure/gap-padding-margin.js';
-import './modules/measure/line-width.js';
-import './modules/process/preprocess/line-break.js';
-import './modules/process/preprocess/segmenter.js';
-import './modules/process/preprocess/combo.js';
-import './modules/process/postprocess/process-punct.js';
-import './modules/process/postprocess/surplus.js';
-import './modules/process/orchestrate.js';
-import './modules/99-export.js';
+import { hangConfig, mergeHangConfig } from './modules/core/config.js';
+import { apply } from './modules/process/preprocess/segmenter.js';
+import { applyHangAvoidance } from './modules/process/orchestrate.js';
+import { applyComboSymbols } from './modules/process/preprocess/combo.js';
+import {
+  relaxBuiltinLineBreak,
+  unrelaxBuiltinLineBreak,
+} from './modules/process/preprocess/line-break.js';
+import { applyLineSurplusPaddingByVisualWidth } from './modules/process/postprocess/surplus.js';
+import {
+  buildBlockLayout,
+  measureBlockVisualLines,
+  measureRootVisualLines,
+  measureLineVisualMetricsPx,
+  setCharWidthMeasurer,
+} from './modules/measure/line-width.js';
+import {
+  flattenParagraph,
+  findLineFirstCharIndices,
+  lineItemBounds,
+  lineCharsFromItems,
+} from './modules/measure/paragraph-items.js';
+import { gapPmPx, comboFixedGapPmPx, lineGapPmSumsPx } from './modules/measure/gap-padding-margin.js';
 
-export default KatsujiInternal.global.Katsuji;
+const Katsuji = {
+  config: { hang: hangConfig },
+  setHangConfig: mergeHangConfig,
+  apply,
+  applyHangAvoidance,
+  applyLineSurplusPaddingByVisualWidth,
+  applyComboSymbols,
+  relaxBuiltinLineBreak,
+  unrelaxBuiltinLineBreak,
+  buildBlockLayout,
+  measureBlockVisualLines,
+  measureRootVisualLines,
+  measureLineVisualMetricsPx,
+  flattenParagraph,
+  findLineFirstCharIndices,
+  lineItemBounds,
+  lineCharsFromItems,
+  gapPmPx,
+  sumLineAllGapPmPx(items, startIndex, endIndex) {
+    return lineGapPmSumsPx(items, startIndex, endIndex).gapPmPx;
+  },
+  comboFixedGapPmPx,
+  setCharWidthMeasurer,
+};
+
+export default Katsuji;

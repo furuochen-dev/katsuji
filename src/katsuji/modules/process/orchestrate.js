@@ -1,48 +1,43 @@
 /** 编排 */
-(function (AT) {
-  var mergeHangConfig = AT.Config.mergeHangConfig;
-  var applyComboSymbolsBlock = AT.Combo.applyComboSymbolsBlock;
-  var resetGapStyles = AT.Segmenter.resetGapStyles;
-  var unwrapHalfPunctInBlock = AT.PunctWrap.unwrapHalfPunctInBlock;
-  var applyProcessPunct = AT.ProcessPunct.applyProcessPunct;
-  var applyLineSurplusPaddingByVisualWidth = AT.Surplus.applyLineSurplusPaddingByVisualWidth;
-  var relaxBuiltinLineBreak = AT.LineBreak.relaxBuiltinLineBreak;
+import { mergeHangConfig } from '../core/config.js';
+import { applyComboSymbolsBlock } from './preprocess/combo.js';
+import { resetGapStyles } from './preprocess/segmenter.js';
+import { unwrapHalfPunctInBlock } from '../core/punct-wrap.js';
+import { applyProcessPunct } from './postprocess/process-punct.js';
+import { applyLineSurplusPaddingByVisualWidth } from './postprocess/surplus.js';
+import { relaxBuiltinLineBreak } from './preprocess/line-break.js';
+import { defaultRoot } from '../env.js';
 
-  function applyHangAvoidance(root, options) {
-    var g = AT.global;
-    root = root || g.document.body;
-    options = options || {};
-    var hangOpts = mergeHangConfig(options.hang);
-    if (options.debugWholeCharPush != null) {
-      hangOpts.debugWholeCharPush = !!options.debugWholeCharPush;
+export function applyHangAvoidance(root, options) {
+  root = defaultRoot(root);
+  if (!root) return;
+  options = options || {};
+  var hangOpts = mergeHangConfig(options.hang);
+  if (options.debugWholeCharPush != null) {
+    hangOpts.debugWholeCharPush = !!options.debugWholeCharPush;
+  }
+  var maxIter = options.maxIterations != null ? options.maxIterations : 24;
+  if (options.relaxBuiltinLineBreak !== false) {
+    relaxBuiltinLineBreak(root);
+    void root.offsetHeight;
+  }
+  var blocks = root.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li');
+  for (var b = 0; b < blocks.length; b++) {
+    var block = blocks[b];
+    if (block.closest && block.closest('script, style, textarea, noscript, pre, code')) continue;
+    if (options.applyComboSymbols !== false) {
+      applyComboSymbolsBlock(block);
     }
-    var maxIter = options.maxIterations != null ? options.maxIterations : 24;
-    if (options.relaxBuiltinLineBreak !== false) {
-      relaxBuiltinLineBreak(root);
-      void root.offsetHeight;
+    resetGapStyles(block);
+    unwrapHalfPunctInBlock(block);
+    var iter = 0;
+    while (iter < maxIter) {
+      var hit = applyProcessPunct(block, hangOpts);
+      if (!hit) break;
+      iter++;
     }
-    var blocks = root.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li');
-    for (var b = 0; b < blocks.length; b++) {
-      var block = blocks[b];
-      if (block.closest && block.closest('script, style, textarea, noscript, pre, code')) continue;
-      if (options.applyComboSymbols !== false) {
-        applyComboSymbolsBlock(block);
-      }
-      resetGapStyles(block);
-      unwrapHalfPunctInBlock(block);
-      var iter = 0;
-      while (iter < maxIter) {
-        var hit = applyProcessPunct(block, hangOpts);
-        if (!hit) break;
-        iter++;
-      }
-      if (options.applyLineSurplusPadding !== false) {
-        applyLineSurplusPaddingByVisualWidth(block);
-      }
+    if (options.applyLineSurplusPadding !== false) {
+      applyLineSurplusPaddingByVisualWidth(block);
     }
   }
-
-  AT.Orchestrate = {
-    applyHangAvoidance: applyHangAvoidance,
-  };
-})(KatsujiInternal);
+}
