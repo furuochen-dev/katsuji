@@ -81,3 +81,14 @@ export function isBadLineEndOpen(ch) {
   if (OPEN_LINE_START[ch]) return true;
   return ch === '(';
 }
+
+/** 行末半角标点候选（闭引/句读等，push 成功时包 ts-half-punct） */
+export function isHalfWidthLineEndPunct(ch) {
+  if (AFTER_CHARS[ch]) return true;
+  return /[,.;:!?]/.test(ch) && NON_BRACKET_COMBO[ch] === true;
+}
+
+/** 行内标点计数（含开闭引、句读等） */
+export function isPunctuationChar(ch) {
+  return AFTER_CHARS[ch] || BEFORE_OPEN_GAP[ch] || comboBracketClass(ch) != null;
+}

@@ -179,29 +179,42 @@ export function measureRootVisualLines(root, selector) {
 }
 
 /** @returns {{ em: string|null, usedPushFallback: boolean }} */
-export function hangMarginEmPerGap(layout, startIndex, endIndex, gapCount, marginOpts) {
+export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var none = { em: null, usedPushFallback: false };
-  if (!layout || gapCount < 1) return none;
   marginOpts = marginOpts || {};
+  var pullGapCount =
+    marginOpts.pullGapCount != null ? marginOpts.pullGapCount : marginOpts.gapCount;
+  var pushGapCount =
+    marginOpts.pushGapCount != null ? marginOpts.pushGapCount : marginOpts.gapCount;
+  if (!layout) return none;
+  var pullGapCount =
+    marginOpts.pullGapCount != null ? marginOpts.pullGapCount : marginOpts.gapCount;
+  var pushGapCount =
+    marginOpts.pushGapCount != null ? marginOpts.pushGapCount : marginOpts.gapCount;
+  var canPull = pullGapCount >= 1;
+  var canPush = pushGapCount >= 1;
+  if (!canPull && !canPush) return none;
   var pullBaseEm = marginOpts.pullBaseEm != null ? marginOpts.pullBaseEm : 1;
   var pushBaseEm = marginOpts.pushBaseEm != null ? marginOpts.pushBaseEm : 1;
   var lineEm = lineVisualWidthEm(layout, startIndex, endIndex);
   var pullAmountEm = pullBaseEm + lineEm - layout.maxEm;
   var pushAmountEm = pushBaseEm + layout.maxEm - lineEm;
-  var pullAbs = Math.abs(pullAmountEm);
-  var pushAbs = Math.abs(pushAmountEm);
-  var usePush = pushAbs < pullAbs;
+  var pullPerGap = canPull ? Math.abs(pullAmountEm / pullGapCount) : Infinity;
+  var pushPerGap = canPush ? Math.abs(pushAmountEm / pushGapCount) : Infinity;
+  var usePush = canPush && (!canPull || pushPerGap < pullPerGap);
   var amountEm = usePush ? pushAmountEm : pullAmountEm;
+  var gapCount = usePush ? pushGapCount : pullGapCount;
   var share = usePush ? amountEm / gapCount - 0.001 : -amountEm / gapCount - 0.001;
   console.log('[Katsuji hangMarginEmPerGap]', {
-    pullAbs,
-    pushAbs,
+    pullPerGap,
+    pushPerGap,
     usePush,
     pullAmountEm,
     pushAmountEm,
+    pullGapCount,
+    pushGapCount,
     lineEm,
     maxEm: layout.maxEm,
-    gapCount,
   });
   if (!isFinite(share)) return none;
   return {

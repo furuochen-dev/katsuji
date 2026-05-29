@@ -115,6 +115,13 @@ export function gapElAdjacentBeforeChar(items, charIndex) {
   return null;
 }
 
+export function gapElAdjacentAfterChar(items, charIndex) {
+  if (charIndex + 1 < items.length && items[charIndex + 1].type === 'gap') {
+    return items[charIndex + 1].el;
+  }
+  return null;
+}
+
 export function lastAdjustableGapElInRange(items, startIncl, endIncl) {
   for (var j = endIncl; j >= startIncl && j < items.length; j--) {
     if (items[j].type !== 'gap') continue;
