@@ -185,14 +185,28 @@ export function hangMarginEmPerGap(layout, startIndex, endIndex, gapCount, margi
   marginOpts = marginOpts || {};
   var pullBaseEm = marginOpts.pullBaseEm != null ? marginOpts.pullBaseEm : 1;
   var pushBaseEm = marginOpts.pushBaseEm != null ? marginOpts.pushBaseEm : 1;
-  var pushOut = marginOpts.wholeCharMaxMinusLine === true;
   var lineEm = lineVisualWidthEm(layout, startIndex, endIndex);
-  var amountEm = pushOut ? pushBaseEm + layout.maxEm - lineEm : pullBaseEm + lineEm - layout.maxEm;
-  var share = pushOut ? amountEm / gapCount - 0.001: -amountEm / gapCount - 0.001;
+  var pullAmountEm = pullBaseEm + lineEm - layout.maxEm;
+  var pushAmountEm = pushBaseEm + layout.maxEm - lineEm;
+  var pullAbs = Math.abs(pullAmountEm);
+  var pushAbs = Math.abs(pushAmountEm);
+  var usePush = pushAbs < pullAbs;
+  var amountEm = usePush ? pushAmountEm : pullAmountEm;
+  var share = usePush ? amountEm / gapCount - 0.001 : -amountEm / gapCount - 0.001;
+  console.log('[Katsuji hangMarginEmPerGap]', {
+    pullAbs,
+    pushAbs,
+    usePush,
+    pullAmountEm,
+    pushAmountEm,
+    lineEm,
+    maxEm: layout.maxEm,
+    gapCount,
+  });
   if (!isFinite(share)) return none;
   return {
     em: share.toFixed(6).replace(/\.?0+$/, '') + 'em',
-    usedPushFallback: false,
+    usedPushFallback: usePush,
   };
 }
 

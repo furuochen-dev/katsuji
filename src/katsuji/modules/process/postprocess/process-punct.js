@@ -54,7 +54,6 @@ function tryHeadPunctOnce(layout, hangOpts) {
     var margin = hangMarginEmPerGap(layout, prevStart, prevEnd, gaps.length, {
       pullBaseEm: 0.5,
       pushBaseEm: 1,
-      wholeCharMaxMinusLine: debugWholeCharPush,
     });
     if (!margin.em) continue;
 
@@ -90,7 +89,6 @@ function tryTailPunctOnce(layout, hangOpts) {
     var margin = hangMarginEmPerGap(layout, tailRange.startIndex, tailRange.endIndex, tailGaps.length, {
       pullBaseEm: 1,
       pushBaseEm: 1,
-      wholeCharMaxMinusLine: debugWholeCharPush,
     });
     if (!margin.em) continue;
 
