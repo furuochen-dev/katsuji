@@ -1,34 +1,36 @@
 /** @layer 0 禁则与组合符号分类（按 ts-gap 侧） */
 
+export var DEFAULT_GAP_BEFORE = '（【「『《〈〔［（' + '\u201C\u2018' + '(';
+export var DEFAULT_GAP_NONE = '…～％‰℃°—';
+export var DEFAULT_GAP_AFTER =
+  '，。、；：？！' +
+  '）】｝〉》」』' +
+  ')]}' +
+  '\u201D\u2019' +
+  '·' +
+  ',.;:!?';
+
 /** 2. 左边有空：左括、左引、《 等 */
-export const BEFORE_OPEN_GAP = (function () {
-  var s = '（【「『《〈〔［（' + '\u201C\u2018' + '(';
-  var o = Object.create(null);
-  for (var i = 0; i < s.length; i++) o[s.charAt(i)] = true;
-  return o;
-})();
+export const BEFORE_OPEN_GAP = Object.create(null);
 
-/** 3. 两侧皆无空：…、～、％、单位符号、破折号等 */
-var GAP_NONE = (function () {
-  var s = '…～％‰℃°—';
-  var o = Object.create(null);
-  for (var i = 0; i < s.length; i++) o[s.charAt(i)] = true;
-  return o;
-})();
+/** 3. 两侧皆无空 */
+export const GAP_NONE = Object.create(null);
 
-/** 1. 右边有空：除 …、～ 外的标点（句读、闭括、半角标点等） */
-export const AFTER_CHARS = (function () {
-  var s =
-    '，。、；：？！' +
-    '）】｝〉》」』' +
-    ')]}' +
-    '\u201D\u2019' +
-    '·' +
-    ',.;:!?';
-  var o = Object.create(null);
-  for (var i = 0; i < s.length; i++) o[s.charAt(i)] = true;
-  return o;
-})();
+/** 1. 右边有空：句读、闭括、半角标点等 */
+export const AFTER_CHARS = Object.create(null);
+
+function fillSet(target, str) {
+  for (var k in target) delete target[k];
+  for (var i = 0; i < str.length; i++) target[str.charAt(i)] = true;
+}
+
+export function rebuildPunctSets(gapBefore, gapNone, gapAfter) {
+  fillSet(BEFORE_OPEN_GAP, gapBefore);
+  fillSet(GAP_NONE, gapNone);
+  fillSet(AFTER_CHARS, gapAfter);
+}
+
+rebuildPunctSets(DEFAULT_GAP_BEFORE, DEFAULT_GAP_NONE, DEFAULT_GAP_AFTER);
 
 /** @returns {'after'|'before'|'none'|null} 1=after 2=before 3=none */
 export function punctGapClass(ch) {

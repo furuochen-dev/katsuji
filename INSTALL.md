@@ -142,6 +142,8 @@ Katsuji.applyHangAvoidance(root, options);
 Katsuji.applyComboSymbols(root);
 Katsuji.unrelaxBuiltinLineBreak(root);
 Katsuji.setHangConfig(hangOptions);
+Katsuji.setPunctConfig(punctOptions);
+Katsuji.applyPunctPreset('jis-strict');
 Katsuji.defaultStrategyDecider(tieBreak);
 ```
 
@@ -191,6 +193,38 @@ Katsuji.setHangConfig({
 
 Katsuji.config.hang; // 当前 hang 配置（含 strategyDecider）
 ```
+
+### 标点分类（`setPunctConfig` / `applyPunctPreset`）
+
+三类标点决定 `ts-gap` 插入与禁则（`before` 左空 / `after` 右空 / `none` 无空）：
+
+- **行首禁则**：`after`（右空）与 `none`（无空）不得出现在行首
+- **行尾禁则**：`before`（左空）不得出现在行尾
+
+**须在 `Katsuji.apply` 之前配置**；修改后需重新 `apply` 与 `applyHangAvoidance`。
+
+```js
+Katsuji.setPunctConfig({
+  jisStrict: true, // JIS 严格：叠字符号、假名叠字、小假名、片假名长音 ー → none
+  vertical: true,  // 竖排：！？→ none；国标竖排九字 U+FE10–FE18 入对应类
+  gapBefore: null, // 传入字符串则整类替换（null 用预设叠加后的默认）
+  gapNone: null,
+  gapAfter: null,
+});
+
+Katsuji.applyPunctPreset('jis-strict');
+Katsuji.applyPunctPreset('vertical');
+Katsuji.applyPunctPreset('default'); // 恢复横排默认三类
+
+Katsuji.config.punct;
+```
+
+竖排预设（尚未实现竖排排版，仅分类先行）：
+
+- 全角 `！``？` 从 `after` 移至 `none`
+- `︐︑︒︘`（U+FE10–FE12、FE18）→ `after`
+- `︗`（U+FE17）→ `before`
+- `︓︔︕︖`（U+FE13–FE16）→ `none`（冒号、分号、叹号、问号竖排形；国标中︓︔无横排写法）
 
 调试 / 量宽：
 

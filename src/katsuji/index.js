@@ -2,6 +2,7 @@
  * Katsuji 浏览器入口（esbuild → dist/katsuji.js，IIFE 全局 Katsuji）
  */
 import { hangConfig, mergeHangConfig } from './modules/core/config.js';
+import { punctConfig, mergePunctConfig, applyPunctPreset } from './modules/core/punct-config.js';
 import { apply } from './modules/process/preprocess/segmenter.js';
 import { applyHangAvoidance } from './modules/process/orchestrate.js';
 import { applyComboSymbols } from './modules/process/preprocess/combo.js';
@@ -27,8 +28,10 @@ import {
 import { gapPmPx, comboFixedGapPmPx, lineGapPmSumsPx } from './modules/measure/gap-padding-margin.js';
 
 const Katsuji = {
-  config: { hang: hangConfig },
+  config: { hang: hangConfig, punct: punctConfig },
   setHangConfig: mergeHangConfig,
+  setPunctConfig: mergePunctConfig,
+  applyPunctPreset,
   defaultStrategyDecider,
   apply,
   applyHangAvoidance,
