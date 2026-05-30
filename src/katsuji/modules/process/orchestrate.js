@@ -4,7 +4,7 @@ import { resetGapStyles } from './preprocess/segmenter.js';
 import { unwrapHalfPunctInBlock } from '../core/punct-wrap.js';
 import { applyProcessPunct } from './postprocess/process-punct.js';
 import { applyLineSurplusPaddingByVisualWidth } from './postprocess/surplus.js';
-import { relaxBuiltinLineBreak } from './preprocess/line-break.js';
+import { relaxBuiltinLineBreak, unrelaxBuiltinLineBreak } from './preprocess/line-break.js';
 import { defaultRoot } from '../env.js';
 
 export function applyHangAvoidance(root, options) {
@@ -31,6 +31,11 @@ export function applyHangAvoidance(root, options) {
       if (!hit) break;
       iter++;
     }
+  }
+  unrelaxBuiltinLineBreak(root)
+  for (var b = 0; b < blocks.length; b++) {
+    var block = blocks[b];
+    if (block.closest && block.closest('script, style, textarea, noscript, pre, code')) continue;
     if (options.applyLineSurplusPadding !== false) {
       applyLineSurplusPaddingByVisualWidth(block);
     }

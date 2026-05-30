@@ -7,7 +7,7 @@ import {
   collectGapsBetween,
   gapElAdjacentAfterChar,
 } from '../../measure/paragraph-items.js';
-import { isForbiddenLineStart, isBadLineEndOpen, isHalfWidthLineEndPunct, isPunctuationChar } from '../../text/punctuation-rules.js';
+import { isForbiddenLineStart, isBadLineEndOpen, isHalfWidthLineEndPunct } from '../../text/punctuation-rules.js';
 import { gapsAlreadyHavePullMargin } from '../../measure/gap-padding-margin.js';
 import { wrapCharAsHalfPunct, charItemIsHalfPunctWrapped } from '../../core/punct-wrap.js';
 
@@ -18,142 +18,125 @@ function applyMarginToGaps(gaps, em) {
   }
 }
 
-function tryHeadPunctOnce(layout) {
+function tryHeadPunctOnLine(layout, L) {
   var items = layout.items;
   var heads = layout.heads;
-  if (heads.length < 2) return false;
+  if (L < 1) return false;
 
-  for (var L = 1; L < heads.length; L++) {
-    var lineStart = heads[L];
-    var nextLineStart = L + 1 < heads.length ? heads[L + 1] : items.length;
-    var sig = firstSignificantCharIndexOnLine(items, lineStart, nextLineStart);
-    if (sig < 0) continue;
-    if (!isForbiddenLineStart(items[sig].ch)) continue;
+  var lineStart = heads[L];
+  var nextLineStart = L + 1 < heads.length ? heads[L + 1] : items.length;
+  var sig = firstSignificantCharIndexOnLine(items, lineStart, nextLineStart);
+  if (sig < 0) return false;
+  if (!isForbiddenLineStart(items[sig].ch)) return false;
 
-    var prevRange = lineItemBounds(items, heads, L - 1);
-    var prevStart = prevRange.startIndex;
-    var prevEnd = lineStart - 1;
-    if (prevEnd < prevStart) continue;
+  var prevRange = lineItemBounds(items, heads, L - 1);
+  var prevStart = prevRange.startIndex;
+  var prevEnd = lineStart - 1;
+  if (prevEnd < prevStart) return false;
 
-    var gaps = collectGapsBetween(items, prevStart, prevEnd, true);
-    if (gaps.length < 1) continue;
-    if (charItemIsHalfPunctWrapped(items[sig]) && gapsAlreadyHavePullMargin(gaps, layout.emPx)) {
-      continue;
-    }
-
-    var margin = hangMarginEmPerGap(layout, prevStart, prevEnd, {
-      pullBaseEm: 0.5,
-      pushBaseEm: 1,
-      pullGapCount: gaps.length,
-      pushGapCount: gaps.length,
-    });
-    if (!margin.em) continue;
-
-    applyMarginToGaps(gaps, margin.em);
-    if (!margin.usedPushFallback && !charItemIsHalfPunctWrapped(items[sig])) {
-      wrapCharAsHalfPunct(items[sig]);
-    }
-    return true;
+  var gaps = collectGapsBetween(items, prevStart, prevEnd, true);
+  if (gaps.length < 1) return false;
+  if (charItemIsHalfPunctWrapped(items[sig]) && gapsAlreadyHavePullMargin(gaps, layout.emPx)) {
+    return false;
   }
-  return false;
+
+  var margin = hangMarginEmPerGap(layout, prevStart, prevEnd, {
+    pullBaseEm: 0.5,
+    pushBaseEm: 1,
+    pullGapCount: gaps.length,
+    pushGapCount: gaps.length,
+  });
+  if (!margin.em) return false;
+
+  applyMarginToGaps(gaps, margin.em);
+  if (!margin.usedPushFallback && !charItemIsHalfPunctWrapped(items[sig])) {
+    wrapCharAsHalfPunct(items[sig]);
+  }
+  return true;
 }
 
-function tryTailPunctOnce(layout) {
+function tryTailPunctOnLine(layout, T) {
   var items = layout.items;
   var heads = layout.heads;
 
-  for (var T = 0; T < heads.length; T++) {
-    var ls = heads[T];
-    var nxt = T + 1 < heads.length ? heads[T + 1] : items.length;
-    var lastIdx = lastSignificantCharIndexOnLine(items, ls, nxt);
-    if (lastIdx < 0) continue;
-    if (!isBadLineEndOpen(items[lastIdx].ch)) continue;
+  var ls = heads[T];
+  var nxt = T + 1 < heads.length ? heads[T + 1] : items.length;
+  var lastIdx = lastSignificantCharIndexOnLine(items, ls, nxt);
+  if (lastIdx < 0) return false;
+  if (!isBadLineEndOpen(items[lastIdx].ch)) return false;
 
-    var tailGaps = collectGapsBetween(items, ls, nxt - 1, {
-      skipComboFixed: true,
-      omitBesideCharIndex: lastIdx,
-      requireMinAdjustableGaps: 2,
-    });
-    if (tailGaps.length < 1) continue;
+  var tailGaps = collectGapsBetween(items, ls, nxt - 1, {
+    skipComboFixed: true,
+    omitBesideCharIndex: lastIdx,
+    requireMinAdjustableGaps: 2,
+  });
+  if (tailGaps.length < 1) return false;
 
-    var tailRange = lineItemBounds(items, heads, T);
-    var margin = hangMarginEmPerGap(layout, tailRange.startIndex, tailRange.endIndex, {
-      pullBaseEm: 1,
-      pushBaseEm: 1,
-      pullGapCount: tailGaps.length,
-      pushGapCount: tailGaps.length,
-    });
-    if (!margin.em) continue;
+  var tailRange = lineItemBounds(items, heads, T);
+  var margin = hangMarginEmPerGap(layout, tailRange.startIndex, tailRange.endIndex, {
+    pullBaseEm: 1,
+    pushBaseEm: 1,
+    pullGapCount: tailGaps.length,
+    pushGapCount: tailGaps.length,
+  });
+  if (!margin.em) return false;
 
-    applyMarginToGaps(tailGaps, margin.em);
-    return true;
-  }
-  return false;
+  applyMarginToGaps(tailGaps, margin.em);
+  return true;
 }
 
-function countLinePunctuation(items, lineStart, lineEndExcl) {
-  var n = 0;
-  for (var i = lineStart; i < lineEndExcl && i < items.length; i++) {
-    if (items[i].type !== 'char') continue;
-    if (isPunctuationChar(items[i].ch)) n++;
-  }
-  return n;
-}
-
-function tryLineEndPunctOnce(layout) {
+function tryLineEndPunctOnLine(layout, L) {
   var items = layout.items;
   var heads = layout.heads;
+  if (heads.length >= 2 && L === heads.length - 2) return false;
 
-  for (var L = 0; L < heads.length; L++) {
-    if (heads.length >= 2 && L === heads.length - 2) continue;
-    var ls = heads[L];
-    var nxt = L + 1 < heads.length ? heads[L + 1] : items.length;
-    var lastIdx = lastSignificantCharIndexOnLine(items, ls, nxt);
-    if (lastIdx < 0) continue;
-    if (!isHalfWidthLineEndPunct(items[lastIdx].ch)) continue;
-    if (charItemIsHalfPunctWrapped(items[lastIdx])) continue;
+  var ls = heads[L];
+  var nxt = L + 1 < heads.length ? heads[L + 1] : items.length;
+  var lastIdx = lastSignificantCharIndexOnLine(items, ls, nxt);
+  if (lastIdx < 0) return false;
+  if (!isHalfWidthLineEndPunct(items[lastIdx].ch)) return false;
+  if (charItemIsHalfPunctWrapped(items[lastIdx])) return false;
 
-    var punctCount = countLinePunctuation(items, ls, nxt);
-    if (punctCount < 1) continue;
+  var range = lineItemBounds(items, heads, L);
+  var gaps = collectGapsBetween(items, range.startIndex, range.endIndex, {
+    skipComboFixed: true,
+  });
+  if (gaps.length < 1) return false;
 
-    var range = lineItemBounds(items, heads, L);
-    var gaps = collectGapsBetween(items, range.startIndex, range.endIndex, {
-      skipComboFixed: true,
-    });
-    if (gaps.length < 1) continue;
+  var margin = hangMarginEmPerGap(layout, range.startIndex, range.endIndex, {
+    pullBaseEm: 1,
+    pushBaseEm: 0.5,
+    pullGapCount: gaps.length,
+    pushGapCount: Math.max(gaps.length - 1, 0),
+  });
+  if (!margin.em) return false;
 
-    var margin = hangMarginEmPerGap(layout, range.startIndex, range.endIndex, {
-      pullBaseEm: 1,
-      pushBaseEm: 0.5,
-      pullGapCount: punctCount,
-      pushGapCount: Math.max(punctCount - 1, 0),
-    });
-    if (!margin.em) continue;
-
-    var gapsToApply = gaps;
-    if (margin.usedPushFallback) {
-      var trailGap = gapElAdjacentAfterChar(items, lastIdx);
-      if (trailGap) {
-        gapsToApply = gaps.filter(function (el) {
-          return el !== trailGap;
-        });
-      }
+  var gapsToApply = gaps;
+  if (margin.usedPushFallback) {
+    var trailGap = gapElAdjacentAfterChar(items, lastIdx);
+    if (trailGap) {
+      gapsToApply = gaps.filter(function (el) {
+        return el !== trailGap;
+      });
     }
-    if (gapsToApply.length > 0) {
-      applyMarginToGaps(gapsToApply, margin.em);
-    }
-    if (margin.usedPushFallback && !charItemIsHalfPunctWrapped(items[lastIdx])) {
-      wrapCharAsHalfPunct(items[lastIdx]);
-    }
-    return true;
   }
-  return false;
+  if (gapsToApply.length > 0) {
+    applyMarginToGaps(gapsToApply, margin.em);
+  }
+  if (margin.usedPushFallback && !charItemIsHalfPunctWrapped(items[lastIdx])) {
+    wrapCharAsHalfPunct(items[lastIdx]);
+  }
+  return true;
 }
 
 export function applyProcessPunct(block) {
   var layout = buildBlockLayout(block);
   if (!layout || !layout.items.length || layout.heads.length < 1) return false;
-  return (
-    tryHeadPunctOnce(layout) || tryTailPunctOnce(layout) || tryLineEndPunctOnce(layout)
-  );
+  var heads = layout.heads;
+  for (var L = 0; L < heads.length; L++) {
+    if (L >= 1 && tryHeadPunctOnLine(layout, L)) return true;
+    if (tryTailPunctOnLine(layout, L)) return true;
+    if (tryLineEndPunctOnLine(layout, L)) return true;
+  }
+  return false;
 }

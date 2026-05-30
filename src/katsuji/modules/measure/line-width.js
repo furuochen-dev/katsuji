@@ -204,7 +204,7 @@ export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var usePush = canPush && (!canPull || pushPerGap < pullPerGap);
   var amountEm = usePush ? pushAmountEm : pullAmountEm;
   var gapCount = usePush ? pushGapCount : pullGapCount;
-  var share = usePush ? amountEm / gapCount - 0.001 : -amountEm / gapCount - 0.1;
+  var share = usePush ? amountEm / gapCount - 0.001 : -amountEm / gapCount - 0.001;
   if (!isFinite(share)) return none;
   return {
     em: share.toFixed(6).replace(/\.?0+$/, '') + 'em',

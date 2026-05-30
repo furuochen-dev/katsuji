@@ -5,7 +5,7 @@ export function relaxBuiltinLineBreak(root) {
   var prev = root.style.getPropertyValue('line-break');
   root.setAttribute('data-ts-relax', '1');
   root.setAttribute('data-ts-prev-line-break', prev);
-  // root.style.setProperty('line-break', 'anywhere');
+  root.style.setProperty('line-break', 'anywhere');
 }
 
 export function unrelaxBuiltinLineBreak(root) {
@@ -13,7 +13,7 @@ export function unrelaxBuiltinLineBreak(root) {
   if (root.getAttribute('data-ts-relax') !== '1') return;
   var prev = root.getAttribute('data-ts-prev-line-break');
   if (prev) root.style.setProperty('line-break', prev);
-  // else root.style.removeProperty('line-break');
+  else root.style.removeProperty('line-break');
   root.removeAttribute('data-ts-relax');
   root.removeAttribute('data-ts-prev-line-break');
 }

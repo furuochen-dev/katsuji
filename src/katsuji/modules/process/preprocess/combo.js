@@ -1,7 +1,7 @@
 /** 组合符号：固定 ts-gap margin，不参与后续可调空 */
 import { defaultRoot } from '../../env.js';
 import { flattenParagraph } from '../../measure/paragraph-items.js';
-import { comboBracketClass } from '../../text/punctuation-rules.js';
+import { punctGapClass } from '../../text/punctuation-rules.js';
 
 function findPrevCharIndex(items, fromIdx) {
   for (var j = fromIdx - 1; j >= 0; j--) {
@@ -27,15 +27,10 @@ export function applyComboSymbolsBlock(block) {
     var pi = findPrevCharIndex(items, i);
     var ni = findNextCharIndex(items, i);
     if (pi < 0 || ni < 0) continue;
-    var p = comboBracketClass(items[pi].ch);
-    var n = comboBracketClass(items[ni].ch);
+    var p = punctGapClass(items[pi].ch);
+    var n = punctGapClass(items[ni].ch);
     if (p == null || n == null) continue;
-    var hit =
-      (p === 'N' && n === 'L') ||
-      (p === 'R' && n === 'N') ||
-      (p === 'N' && n === 'N') ||
-      (p === 'R' && n === 'L');
-    if (!hit) continue;
+    if (p !== 'after' && n !== 'before') continue;
     el.setAttribute('data-ts-combo-fixed', '1');
     el.classList.add('ts-gap-combo');
     el.style.paddingLeft = '0';

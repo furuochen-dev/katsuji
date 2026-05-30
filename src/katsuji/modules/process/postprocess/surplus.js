@@ -14,7 +14,7 @@ export function applyLineSurplusPaddingByVisualWidth(block) {
   var layout = buildBlockLayout(block);
   if (!layout) return;
   for (var L = 0; L < layout.heads.length; L++) {
-    if (layout.heads.length >= 2 && L === layout.heads.length - 2) continue;
+    if (L === layout.heads.length - 2 || L === layout.heads.length - 1) continue;
     var range = lineItemBounds(layout.items, layout.heads, L);
     var visualEm = lineVisualWidthEm(layout, range.startIndex, range.endIndex);
     var surplusEm = layout.maxEm - visualEm;

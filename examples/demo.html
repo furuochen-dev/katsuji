@@ -156,7 +156,7 @@
     <p class="note">
       中文排版里浏览器会按禁则类规则断行（接近 <code>line-break: strict</code>），常<strong>整字挪到行尾</strong>，行首几乎不会出现禁则标点，于是本脚本的「检测到行首禁则再调
       <code>ts-gap</code>」永远不触发。<code>Katsuji.applyHangAvoidance()</code> 默认会在容器上设 <code>line-break: anywhere</code>，先<strong>关掉这类 UA 断行约束</strong>，再用我们自己的
-      <code>ts-gap</code>：句读、闭括号等<strong>之后</strong>；左括、左引、《 等<strong>之前</strong>（外侧，带 <code>data-ts-open-gap</code>）。<strong>组合符号</strong>（<code>N+L</code>、<code>R+N</code>、<code>R+L</code>、<code>N+N</code>）会把当中空隙改为 <code>margin-left:-0.5em</code> 不可变（蓝框）。避头为上一行可调空各 <code>1/n em</code>；避尾分母 <code>n</code> 含全部空隙，仅对可调空写 <code>1/(n-1)em</code>。若需恢复 UA 行为：<code>Katsuji.unrelaxBuiltinLineBreak(el)</code>；若不想改容器样式：<code>applyHangAvoidance(el, { relaxBuiltinLineBreak: false })</code>。
+      <code>ts-gap</code>：句读、闭括号等<strong>之后</strong>（1 类）；左括、左引、《 等<strong>之前</strong>（2 类，带 <code>data-ts-open-gap</code>）；<code>…</code>、<code>～</code> 两侧皆无空（3 类）。<strong>组合符号</strong>：前为 1 类且后为任意标点，或后为 2 类且前为任意标点时，当中空隙改为 <code>margin-left:-0.5em</code> 不可变（蓝框）。避头禁则为 1+3 类；避尾禁则为 2 类。避头为上一行可调空各 <code>1/n em</code>；避尾分母 <code>n</code> 含全部空隙，仅对可调空写 <code>1/(n-1)em</code>。若需恢复 UA 行为：<code>Katsuji.unrelaxBuiltinLineBreak(el)</code>；若不想改容器样式：<code>applyHangAvoidance(el, { relaxBuiltinLineBreak: false })</code>。
     </p>
 
     <article id="content">
