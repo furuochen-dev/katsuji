@@ -145,10 +145,6 @@
       <input id="content-width" type="range" min="8" max="48" value="30" step="1" />
       <output id="content-width-val" for="content-width">30em</output>
       <label class="hang-debug">
-        <input id="hang-debug-push" type="checkbox" />
-        调试推出（整字）
-      </label>
-      <label class="hang-debug">
         <input id="gap-preview" type="checkbox" checked />
         显示空隙预览框
       </label>
@@ -177,7 +173,7 @@
         会议议题有三项：进说啊啊啊度汇报、风险排查、以及下阶段计划（含预算）请准时参加！请相啊信啊我，亲爱的先生：在大颠帝国中，再也没有比我更衷心是支持与母啊国联合的人了」但以造物主之名，我宁愿死去」也不会接受如今英国议会所提之条件」我相信是这正是美洲的共同心声。
       </p>
       <p>
-        Hello会议议题有三项：进说啊啊啊Hello度汇报、风险排查、以Hello下阶段计划（含预算）请准时参加！请相啊信Hello啊我，亲爱的先生：在大颠帝国中，再也没有比我更衷心Hello是支持与母啊国联合的人了」但以造物主之名，我宁愿死去」也不会接受如今英国议会所Hello提之条件」我相信是这正是Hello美洲的共同心声。
+        Hello会议议题有三项：进说啊啊啊Hello Hello度汇报、风险排查、以Hello Hello下阶段计划（含预算）请准时参加！请相啊信Hello Hello啊我，亲爱的先生：在大颠帝国中，再也没有比我更衷心Hello Hello是支持与母啊国联合的人了」但以造物主之名，我宁愿死去」也不会接受如今英国议会所Hello Hello提之条件」我相信是这正是Hello Hello美洲的共同心声。
       </p>
       <p>
         水果摊上有苹果、香蕉、橘子，价格不贵，味道也好……
@@ -210,7 +206,6 @@
         var slider = document.getElementById('content-width');
         var out = document.getElementById('content-width-val');
         var lwOut = document.getElementById('line-width-out');
-        var hangDebugPush = document.getElementById('hang-debug-push');
         var gapPreview = document.getElementById('gap-preview');
         var usePretext = document.getElementById('use-pretext');
         var lwTitle = document.getElementById('line-width-title');
@@ -238,12 +233,6 @@
           if (!gapPreview) return;
           if (gapPreview.checked) el.classList.add('gap-preview');
           else el.classList.remove('gap-preview');
-        }
-
-        function hangOptions() {
-          return {
-            hang: { debugWholeCharPush: !!(hangDebugPush && hangDebugPush.checked) },
-          };
         }
 
         function paintGapDemoMarks(container) {
@@ -350,7 +339,7 @@
 
         function runHang() {
           void el.offsetHeight;
-          Katsuji.applyHangAvoidance(el, hangOptions());
+          Katsuji.applyHangAvoidance(el);
           syncGapPreviewClass();
           paintGapDemoMarks(el);
           renderLineWidths();
@@ -370,9 +359,6 @@
             applyWidthEm(slider.value);
             bump();
           });
-        }
-        if (hangDebugPush) {
-          hangDebugPush.addEventListener('change', bump);
         }
         if (gapPreview) {
           gapPreview.addEventListener('change', function () {

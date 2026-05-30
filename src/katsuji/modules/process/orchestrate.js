@@ -1,5 +1,4 @@
 /** 编排 */
-import { mergeHangConfig } from '../core/config.js';
 import { applyComboSymbolsBlock } from './preprocess/combo.js';
 import { resetGapStyles } from './preprocess/segmenter.js';
 import { unwrapHalfPunctInBlock } from '../core/punct-wrap.js';
@@ -12,10 +11,6 @@ export function applyHangAvoidance(root, options) {
   root = defaultRoot(root);
   if (!root) return;
   options = options || {};
-  var hangOpts = mergeHangConfig(options.hang);
-  if (options.debugWholeCharPush != null) {
-    hangOpts.debugWholeCharPush = !!options.debugWholeCharPush;
-  }
   var maxIter = options.maxIterations != null ? options.maxIterations : 24;
   if (options.relaxBuiltinLineBreak !== false) {
     relaxBuiltinLineBreak(root);
@@ -32,7 +27,7 @@ export function applyHangAvoidance(root, options) {
     unwrapHalfPunctInBlock(block);
     var iter = 0;
     while (iter < maxIter) {
-      var hit = applyProcessPunct(block, hangOpts);
+      var hit = applyProcessPunct(block);
       if (!hit) break;
       iter++;
     }

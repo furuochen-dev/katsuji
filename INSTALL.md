@@ -141,7 +141,6 @@ Katsuji.apply(root);
 Katsuji.applyHangAvoidance(root, options);
 Katsuji.applyComboSymbols(root);
 Katsuji.unrelaxBuiltinLineBreak(root);
-Katsuji.setHangConfig({ debugWholeCharPush: true });
 ```
 
 `applyHangAvoidance` 常用选项：
@@ -151,7 +150,6 @@ Katsuji.applyHangAvoidance(root, {
   relaxBuiltinLineBreak: false,
   applyLineSurplusPadding: false,
   applyComboSymbols: false,
-  hang: { debugWholeCharPush: true },
 });
 ```
 

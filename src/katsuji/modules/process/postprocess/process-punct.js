@@ -1,5 +1,4 @@
 /** 避头 / 避尾：调 ts-gap margin，必要时包半角 span（单次只改一处） */
-import { hangConfig } from '../../core/config.js';
 import { buildBlockLayout, hangMarginEmPerGap } from '../../measure/line-width.js';
 import {
   lineItemBounds,
@@ -10,12 +9,7 @@ import {
 } from '../../measure/paragraph-items.js';
 import { isForbiddenLineStart, isBadLineEndOpen, isHalfWidthLineEndPunct, isPunctuationChar } from '../../text/punctuation-rules.js';
 import { gapsAlreadyHavePullMargin } from '../../measure/gap-padding-margin.js';
-import {
-  wrapCharAsHalfPunct,
-  wrapCharAsLineEndHalf,
-  charItemIsHalfPunctWrapped,
-  charItemIsLineEndHalfWrapped,
-} from '../../core/punct-wrap.js';
+import { wrapCharAsHalfPunct, charItemIsHalfPunctWrapped } from '../../core/punct-wrap.js';
 
 function applyMarginToGaps(gaps, em) {
   for (var g = 0; g < gaps.length; g++) {
@@ -24,8 +18,7 @@ function applyMarginToGaps(gaps, em) {
   }
 }
 
-function tryHeadPunctOnce(layout, hangOpts) {
-  var debugWholeCharPush = !!hangOpts.debugWholeCharPush;
+function tryHeadPunctOnce(layout) {
   var items = layout.items;
   var heads = layout.heads;
   if (heads.length < 2) return false;
@@ -44,11 +37,7 @@ function tryHeadPunctOnce(layout, hangOpts) {
 
     var gaps = collectGapsBetween(items, prevStart, prevEnd, true);
     if (gaps.length < 1) continue;
-    if (
-      !debugWholeCharPush &&
-      charItemIsHalfPunctWrapped(items[sig]) &&
-      gapsAlreadyHavePullMargin(gaps, layout.emPx)
-    ) {
+    if (charItemIsHalfPunctWrapped(items[sig]) && gapsAlreadyHavePullMargin(gaps, layout.emPx)) {
       continue;
     }
 
@@ -61,7 +50,7 @@ function tryHeadPunctOnce(layout, hangOpts) {
     if (!margin.em) continue;
 
     applyMarginToGaps(gaps, margin.em);
-    if (!debugWholeCharPush && !margin.usedPushFallback && !charItemIsHalfPunctWrapped(items[sig])) {
+    if (!margin.usedPushFallback && !charItemIsHalfPunctWrapped(items[sig])) {
       wrapCharAsHalfPunct(items[sig]);
     }
     return true;
@@ -69,8 +58,7 @@ function tryHeadPunctOnce(layout, hangOpts) {
   return false;
 }
 
-function tryTailPunctOnce(layout, hangOpts) {
-  var debugWholeCharPush = !!hangOpts.debugWholeCharPush;
+function tryTailPunctOnce(layout) {
   var items = layout.items;
   var heads = layout.heads;
 
@@ -98,9 +86,6 @@ function tryTailPunctOnce(layout, hangOpts) {
     if (!margin.em) continue;
 
     applyMarginToGaps(tailGaps, margin.em);
-    if (debugWholeCharPush && !charItemIsLineEndHalfWrapped(items[lastIdx])) {
-      wrapCharAsLineEndHalf(items[lastIdx]);
-    }
     return true;
   }
   return false;
@@ -165,13 +150,10 @@ function tryLineEndPunctOnce(layout) {
   return false;
 }
 
-export function applyProcessPunct(block, hangOpts) {
-  hangOpts = hangOpts || hangConfig;
+export function applyProcessPunct(block) {
   var layout = buildBlockLayout(block);
   if (!layout || !layout.items.length || layout.heads.length < 1) return false;
   return (
-    tryHeadPunctOnce(layout, hangOpts) ||
-    tryTailPunctOnce(layout, hangOpts) ||
-    tryLineEndPunctOnce(layout)
+    tryHeadPunctOnce(layout) || tryTailPunctOnce(layout) || tryLineEndPunctOnce(layout)
   );
 }
