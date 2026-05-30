@@ -141,6 +141,8 @@ Katsuji.apply(root);
 Katsuji.applyHangAvoidance(root, options);
 Katsuji.applyComboSymbols(root);
 Katsuji.unrelaxBuiltinLineBreak(root);
+Katsuji.setHangConfig(hangOptions);
+Katsuji.defaultStrategyDecider(tieBreak);
 ```
 
 `applyHangAvoidance` 常用选项：
@@ -150,7 +152,44 @@ Katsuji.applyHangAvoidance(root, {
   relaxBuiltinLineBreak: false,
   applyLineSurplusPadding: false,
   applyComboSymbols: false,
+  hang: { strategyDecider: Katsuji.defaultStrategyDecider('pull') },
 });
+```
+
+### 挤进 / 推出策略（`hang.strategyDecider`）
+
+避头避尾在「拉上一行空隙」与「推下一行空隙」之间择一时，由 `strategyDecider` 决定。函数签名：
+
+```js
+(pullAmountEm, pullGapCount, pushAmountEm, pushGapCount) => 'push' | 'pull' | 'none'
+```
+
+- `'push'`：采用推出（正 margin，可能包半角 span）
+- `'pull'`：采用挤进（负 margin）
+- `'none'`：两侧皆不可用，本行跳过
+
+内置默认策略 `Katsuji.defaultStrategyDecider(tieBreak)`：`tieBreak` 为 `'pull'` 或 `'push'`。比较两侧 per-gap 绝对量，更小者胜出；差值低于 `1e-6` 时采用 `tieBreak`；无法判定则 `'none'`。
+
+根据 JIS X 4051:2004，我们的默认是相等时拉入；虽说 JIS 说的是所有情况都优先拉入，若这符合你的偏好，可以如下自定义。
+
+```js
+// 全局默认：接近相等时优先拉
+Katsuji.setHangConfig({ strategyDecider: Katsuji.defaultStrategyDecider('pull') });
+
+// 单次覆盖：接近相等时优先推
+Katsuji.applyHangAvoidance(root, {
+  hang: { strategyDecider: Katsuji.defaultStrategyDecider('push') },
+});
+
+// 完全自定义
+Katsuji.setHangConfig({
+  strategyDecider(pullAmountEm, pullGapCount, pushAmountEm, pushGapCount) {
+    if (pullAmountEm <= 0 && pushAmountEm <= 0) return 'none';
+    return pullAmountEm <= pushAmountEm ? 'pull' : 'push';
+  },
+});
+
+Katsuji.config.hang; // 当前 hang 配置（含 strategyDecider）
 ```
 
 调试 / 量宽：

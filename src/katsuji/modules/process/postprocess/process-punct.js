@@ -1,5 +1,6 @@
 /** 避头 / 避尾：调 ts-gap margin，必要时包半角 span（单次只改一处） */
 import { buildBlockLayout, hangMarginEmPerGap } from '../../measure/line-width.js';
+import { hangConfig } from '../../core/config.js';
 import {
   lineItemBounds,
   firstSignificantCharIndexOnLine,
@@ -7,7 +8,7 @@ import {
   collectGapsBetween,
   gapElAdjacentAfterChar,
 } from '../../measure/paragraph-items.js';
-import { isForbiddenLineStart, isBadLineEndOpen, isHalfWidthLineEndPunct } from '../../text/punctuation-rules.js';
+import { isForbiddenLineStart, isBadLineEndOpen, isHalfWidthLineEndPunct, AFTER_CHARS } from '../../text/punctuation-rules.js';
 import { gapsAlreadyHavePullMargin } from '../../measure/gap-padding-margin.js';
 import { wrapCharAsHalfPunct, charItemIsHalfPunctWrapped } from '../../core/punct-wrap.js';
 
@@ -18,7 +19,14 @@ function applyMarginToGaps(gaps, em) {
   }
 }
 
-function tryHeadPunctOnLine(layout, L) {
+function withStrategyDecider(hangOpts, opts) {
+  if (hangOpts && typeof hangOpts.strategyDecider === 'function') {
+    return Object.assign({ strategyDecider: hangOpts.strategyDecider }, opts);
+  }
+  return opts;
+}
+
+function tryHeadPunctOnLine(layout, L, hangOpts) {
   var items = layout.items;
   var heads = layout.heads;
   if (L < 1) return false;
@@ -40,22 +48,28 @@ function tryHeadPunctOnLine(layout, L) {
     return false;
   }
 
-  var margin = hangMarginEmPerGap(layout, prevStart, prevEnd, {
-    pullBaseEm: 0.5,
-    pushBaseEm: 1,
-    pullGapCount: gaps.length,
-    pushGapCount: gaps.length,
-  });
+  var sigCh = items[sig].ch;
+  var margin = hangMarginEmPerGap(
+    layout,
+    prevStart,
+    prevEnd,
+    withStrategyDecider(hangOpts, {
+      pullBaseEm: AFTER_CHARS[sigCh] ? 0.5 : 1,
+      pushBaseEm: 1,
+      pullGapCount: gaps.length,
+      pushGapCount: gaps.length,
+    }),
+  );
   if (!margin.em) return false;
 
   applyMarginToGaps(gaps, margin.em);
-  if (!margin.usedPushFallback && !charItemIsHalfPunctWrapped(items[sig])) {
+  if (AFTER_CHARS[sigCh] && !margin.usedPushFallback && !charItemIsHalfPunctWrapped(items[sig])) {
     wrapCharAsHalfPunct(items[sig]);
   }
   return true;
 }
 
-function tryTailPunctOnLine(layout, T) {
+function tryTailPunctOnLine(layout, T, hangOpts) {
   var items = layout.items;
   var heads = layout.heads;
 
@@ -73,19 +87,24 @@ function tryTailPunctOnLine(layout, T) {
   if (tailGaps.length < 1) return false;
 
   var tailRange = lineItemBounds(items, heads, T);
-  var margin = hangMarginEmPerGap(layout, tailRange.startIndex, tailRange.endIndex, {
-    pullBaseEm: 1,
-    pushBaseEm: 1,
-    pullGapCount: tailGaps.length,
-    pushGapCount: tailGaps.length,
-  });
+  var margin = hangMarginEmPerGap(
+    layout,
+    tailRange.startIndex,
+    tailRange.endIndex,
+    withStrategyDecider(hangOpts, {
+      pullBaseEm: 1,
+      pushBaseEm: 1,
+      pullGapCount: tailGaps.length,
+      pushGapCount: tailGaps.length,
+    }),
+  );
   if (!margin.em) return false;
 
   applyMarginToGaps(tailGaps, margin.em);
   return true;
 }
 
-function tryLineEndPunctOnLine(layout, L) {
+function tryLineEndPunctOnLine(layout, L, hangOpts) {
   var items = layout.items;
   var heads = layout.heads;
   if (heads.length >= 2 && L === heads.length - 2) return false;
@@ -103,12 +122,17 @@ function tryLineEndPunctOnLine(layout, L) {
   });
   if (gaps.length < 1) return false;
 
-  var margin = hangMarginEmPerGap(layout, range.startIndex, range.endIndex, {
-    pullBaseEm: 1,
-    pushBaseEm: 0.5,
-    pullGapCount: gaps.length,
-    pushGapCount: Math.max(gaps.length - 1, 0),
-  });
+  var margin = hangMarginEmPerGap(
+    layout,
+    range.startIndex,
+    range.endIndex,
+    withStrategyDecider(hangOpts, {
+      pullBaseEm: 1,
+      pushBaseEm: 0.5,
+      pullGapCount: gaps.length,
+      pushGapCount: Math.max(gaps.length - 1, 0),
+    }),
+  );
   if (!margin.em) return false;
 
   var gapsToApply = gaps;
@@ -129,14 +153,15 @@ function tryLineEndPunctOnLine(layout, L) {
   return true;
 }
 
-export function applyProcessPunct(block) {
+export function applyProcessPunct(block, hangOpts) {
+  hangOpts = hangOpts || hangConfig;
   var layout = buildBlockLayout(block);
   if (!layout || !layout.items.length || layout.heads.length < 1) return false;
   var heads = layout.heads;
   for (var L = 0; L < heads.length; L++) {
-    if (L >= 1 && tryHeadPunctOnLine(layout, L)) return true;
-    if (tryTailPunctOnLine(layout, L)) return true;
-    if (tryLineEndPunctOnLine(layout, L)) return true;
+    if (L >= 1 && tryHeadPunctOnLine(layout, L, hangOpts)) return true;
+    if (tryTailPunctOnLine(layout, L, hangOpts)) return true;
+    if (tryLineEndPunctOnLine(layout, L, hangOpts)) return true;
   }
   return false;
 }

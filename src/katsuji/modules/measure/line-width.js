@@ -178,6 +178,27 @@ export function measureRootVisualLines(root, selector) {
   return out;
 }
 
+var HANG_STRATEGY_TIE_EPS = 1e-6;
+
+/** @param {'push'|'pull'} tieBreak per-gap 差低于 HANG_STRATEGY_TIE_EPS 时采用 */
+/** @returns {(pullAmountEm: number, pullGapCount: number, pushAmountEm: number, pushGapCount: number) => 'push'|'pull'|'none'} */
+export function defaultStrategyDecider(tieBreak) {
+  if (tieBreak !== 'push' && tieBreak !== 'pull') tieBreak = 'pull';
+  return function (pullAmountEm, pullGapCount, pushAmountEm, pushGapCount) {
+    var canPull = pullGapCount >= 1;
+    var canPush = pushGapCount >= 1;
+    if (!canPush && !canPull) return 'none';
+    if (!canPush) return 'pull';
+    if (!canPull) return 'push';
+    var pullPerGap = Math.abs(pullAmountEm / pullGapCount);
+    var pushPerGap = Math.abs(pushAmountEm / pushGapCount);
+    if (Math.abs(pushPerGap - pullPerGap) < HANG_STRATEGY_TIE_EPS) return tieBreak;
+    if (pushPerGap < pullPerGap) return 'push';
+    if (pushPerGap > pullPerGap) return 'pull';
+    return 'none';
+  };
+}
+
 /** @returns {{ em: string|null, usedPushFallback: boolean }} */
 export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var none = { em: null, usedPushFallback: false };
@@ -187,10 +208,6 @@ export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var pushGapCount =
     marginOpts.pushGapCount != null ? marginOpts.pushGapCount : marginOpts.gapCount;
   if (!layout) return none;
-  var pullGapCount =
-    marginOpts.pullGapCount != null ? marginOpts.pullGapCount : marginOpts.gapCount;
-  var pushGapCount =
-    marginOpts.pushGapCount != null ? marginOpts.pushGapCount : marginOpts.gapCount;
   var canPull = pullGapCount >= 1;
   var canPush = pushGapCount >= 1;
   if (!canPull && !canPush) return none;
@@ -199,9 +216,13 @@ export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var lineEm = lineVisualWidthEm(layout, startIndex, endIndex);
   var pullAmountEm = pullBaseEm + lineEm - layout.maxEm;
   var pushAmountEm = pushBaseEm + layout.maxEm - lineEm;
-  var pullPerGap = canPull ? Math.abs(pullAmountEm / pullGapCount) : Infinity;
-  var pushPerGap = canPush ? Math.abs(pushAmountEm / pushGapCount) : Infinity;
-  var usePush = canPush && (!canPull || pushPerGap < pullPerGap);
+  var decide =
+    typeof marginOpts.strategyDecider === 'function'
+      ? marginOpts.strategyDecider
+      : defaultStrategyDecider('pull');
+  var decision = decide(pullAmountEm, pullGapCount, pushAmountEm, pushGapCount);
+  if (decision === 'none') return none;
+  var usePush = decision === 'push';
   var amountEm = usePush ? pushAmountEm : pullAmountEm;
   var gapCount = usePush ? pushGapCount : pullGapCount;
   var share = usePush ? amountEm / gapCount - 0.001 : -amountEm / gapCount - 0.001;
