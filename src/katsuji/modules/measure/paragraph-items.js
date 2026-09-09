@@ -69,7 +69,12 @@ export function findLineFirstCharIndices(items) {
     prevTop = r.top;
     prevH = r.height;
   }
-  return heads;
+  var kept = [];
+  for (var L = 0; L < heads.length; L++) {
+    var lineEnd = L + 1 < heads.length ? heads[L + 1] : items.length;
+    if (firstSignificantCharIndexOnLine(items, heads[L], lineEnd) >= 0) kept.push(heads[L]);
+  }
+  return kept;
 }
 
 export function lineItemBounds(items, heads, lineIndex) {
@@ -93,7 +98,9 @@ export function firstSignificantCharIndexOnLine(items, lineStart, lineEnd) {
   for (var i = lineStart; i < lineEnd && i < items.length; i++) {
     if (items[i].type !== 'char') continue;
     var ch = items[i].ch;
-    if (ch === ' ' || ch === '\t' || ch === '\u00a0' || ch === '\u3000') continue;
+    if (ch === '\n' || ch === '\r' || ch === ' ' || ch === '\t' || ch === '\u00a0' || ch === '\u3000') {
+      continue;
+    }
     return i;
   }
   return -1;
@@ -104,7 +111,9 @@ export function lastSignificantCharIndexOnLine(items, lineStart, lineEndExcl) {
   for (var i = end - 1; i >= lineStart; i--) {
     if (items[i].type !== 'char') continue;
     var ch2 = items[i].ch;
-    if (ch2 === ' ' || ch2 === '\t' || ch2 === '\u00a0' || ch2 === '\u3000') continue;
+    if (ch2 === '\n' || ch2 === '\r' || ch2 === ' ' || ch2 === '\t' || ch2 === '\u00a0' || ch2 === '\u3000') {
+      continue;
+    }
     return i;
   }
   return -1;
@@ -140,6 +149,9 @@ export function collectGapsBetween(items, startIncl, endIncl, opts) {
     var endGapEl = items[end].el;
     if (!skipComboFixed || endGapEl.getAttribute('data-ts-combo-fixed') !== '1') end--;
   }
+  if (opts.omitLineStart && startIncl <= end && items[startIncl].type === 'gap') {
+    startIncl += 1;
+  }
   if (end < startIncl) return [];
 
   var omitGapEl = opts.omitGapEl || null;
@@ -153,6 +165,7 @@ export function collectGapsBetween(items, startIncl, endIncl, opts) {
   for (var j = startIncl; j <= end && j < items.length; j++) {
     if (items[j].type !== 'gap') continue;
     if (skipComboFixed && items[j].el.getAttribute('data-ts-combo-fixed') === '1') continue;
+    if (items[j].el.getAttribute('data-ts-line-start-open-gap') === '1') continue;
     out.push(items[j].el);
   }
 

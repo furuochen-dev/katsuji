@@ -1,5 +1,5 @@
 /** 组合符号：固定 ts-gap margin，不参与后续可调空 */
-import { defaultRoot } from '../../env.js';
+import { defaultRoot, getDocument } from '../../env.js';
 import { flattenParagraph } from '../../measure/paragraph-items.js';
 import { punctGapClass } from '../../text/punctuation-rules.js';
 
@@ -17,8 +17,52 @@ function findNextCharIndex(items, fromIdx) {
   return -1;
 }
 
-export function applyComboSymbolsBlock(block) {
+function wrapNoneRunSameNode(node, startOff, endOff) {
+  var par = node.parentElement;
+  if (par && par.getAttribute('data-ts-none-run') === '1') return;
+  var tv = node.nodeValue;
+  var doc = node.ownerDocument || getDocument(node);
+  if (!doc || !tv || startOff > endOff) return;
+  var span = doc.createElement('span');
+  span.setAttribute('data-ts-none-run', '1');
+  span.style.whiteSpace = 'nowrap';
+  span.textContent = tv.slice(startOff, endOff + 1);
+  var frag = doc.createDocumentFragment();
+  if (startOff > 0) frag.appendChild(doc.createTextNode(tv.slice(0, startOff)));
+  frag.appendChild(span);
+  if (endOff + 1 < tv.length) frag.appendChild(doc.createTextNode(tv.slice(endOff + 1)));
+  node.parentNode.replaceChild(frag, node);
+}
+
+/** 连续 `两侧无空`（如 ……）绑在一起，中间不折行 */
+export function glueAdjacentNonePunct(block) {
   var items = flattenParagraph(block);
+  var runs = [];
+  var i = 0;
+  while (i < items.length) {
+    if (items[i].type !== 'char' || punctGapClass(items[i].ch) !== 'none') {
+      i += 1;
+      continue;
+    }
+    var start = i;
+    i += 1;
+    while (i < items.length && items[i].type === 'char' && punctGapClass(items[i].ch) === 'none') {
+      i += 1;
+    }
+    if (i - start >= 2) runs.push({ start: start, end: i - 1 });
+  }
+  for (var r = runs.length - 1; r >= 0; r--) {
+    var a = items[runs[r].start];
+    var b = items[runs[r].end];
+    if (!a || !b || a.node !== b.node) continue;
+    wrapNoneRunSameNode(a.node, a.offset, b.offset);
+  }
+}
+
+export function applyComboSymbolsBlock(block, limit) {
+  glueAdjacentNonePunct(block);
+  var items = flattenParagraph(block);
+  var applied = [];
   for (var i = 0; i < items.length; i++) {
     if (items[i].type !== 'gap') continue;
     var el = items[i].el;
@@ -35,7 +79,10 @@ export function applyComboSymbolsBlock(block) {
     el.classList.add('ts-gap-combo');
     el.style.paddingLeft = '0';
     el.style.marginLeft = '-0.5em';
+    applied.push(el);
+    if (limit != null && applied.length >= limit) break;
   }
+  return applied;
 }
 
 export function applyComboSymbols(root) {

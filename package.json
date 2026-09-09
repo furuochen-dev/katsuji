@@ -14,20 +14,16 @@
   },
   "files": [
     "dist/katsuji.js",
-    "dist/katsuji.css",
-    "dist/pretext-bridge.standalone.js",
-    "dist/pretext-bridge.bundle.js"
+    "dist/katsuji.css"
   ],
   "scripts": {
     "prepublishOnly": "npm run build",
-    "build": "npm run build:katsuji && npm run build:pretext",
+    "build": "npm run build:katsuji",
     "build:katsuji": "node scripts/bundle-katsuji.mjs",
-    "build:pretext": "node scripts/bundle-pretext-bridge.mjs",
     "dev": "node scripts/dev.mjs",
     "demo": "npx --yes serve . -p 4173"
   },
   "devDependencies": {
-    "@chenglou/pretext": "^0.0.7",
     "esbuild": "^0.25.0"
   }
 }

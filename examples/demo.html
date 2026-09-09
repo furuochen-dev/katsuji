@@ -60,6 +60,42 @@
         gap: 0.35rem;
         white-space: nowrap;
       }
+      .width-control button {
+        font: inherit;
+        font-size: 0.8125rem;
+        padding: 0.22rem 0.7rem;
+        border: 1px solid #c9bfb0;
+        background: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        color: #1a1a1a;
+      }
+      .width-control button:hover {
+        background: #f3eee6;
+      }
+      .width-control button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      #hang-step-status {
+        flex: 1 1 12rem;
+        min-width: 10rem;
+        color: #555;
+        font-variant-numeric: tabular-nums;
+      }
+      #content p.ts-debug-block,
+      #content h1.ts-debug-block,
+      #content h2.ts-debug-block,
+      #content h3.ts-debug-block,
+      #content li.ts-debug-block {
+        outline: 1px solid rgba(180, 50, 50, 0.35);
+        background: rgba(255, 90, 70, 0.05);
+      }
+      #content span.ts-debug-hit {
+        outline: 2px solid rgba(196, 48, 48, 0.8);
+        outline-offset: 1px;
+        background: rgba(255, 90, 70, 0.22);
+      }
       #content {
         background: #fff;
         border: 1px solid #e3ddd0;
@@ -148,15 +184,14 @@
         <input id="gap-preview" type="checkbox" checked />
         显示空隙预览框
       </label>
-      <label class="hang-debug">
-        <input id="use-pretext" type="checkbox" checked />
-        用 pretext 量字宽
-      </label>
+      <button type="button" id="hang-reset">取消调整</button>
+      <button type="button" id="hang-step">下一步</button>
+      <output id="hang-step-status">自动排版</output>
     </div>
     <p class="note">
       中文排版里浏览器会按禁则类规则断行（接近 <code>line-break: strict</code>），常<strong>整字挪到行尾</strong>，行首几乎不会出现禁则标点，于是本脚本的「检测到行首禁则再调
       <code>ts-gap</code>」永远不触发。<code>Katsuji.applyHangAvoidance()</code> 默认会在容器上设 <code>line-break: anywhere</code>，先<strong>关掉这类 UA 断行约束</strong>，再用我们自己的
-      <code>ts-gap</code>：句读、闭括号等<strong>之后</strong>（1 类）；左括、左引、《 等<strong>之前</strong>（2 类，带 <code>data-ts-open-gap</code>）；<code>…</code>、<code>～</code> 两侧皆无空（3 类）。<strong>组合符号</strong>：前为 1 类且后为任意标点，或后为 2 类且前为任意标点时，当中空隙改为 <code>margin-left:-0.5em</code> 不可变（蓝框）。避头禁则为 1+3 类；避尾禁则为 2 类。避头为上一行可调空各 <code>1/n em</code>；避尾分母 <code>n</code> 含全部空隙，仅对可调空写 <code>1/(n-1)em</code>。若需恢复 UA 行为：<code>Katsuji.unrelaxBuiltinLineBreak(el)</code>；若不想改容器样式：<code>applyHangAvoidance(el, { relaxBuiltinLineBreak: false })</code>。
+      <code>ts-gap</code>：句读、闭括号等<strong>之后</strong>（1 类）；左括、左引、《 等<strong>之前</strong>（2 类，带 <code>data-ts-open-gap</code>）；<code>…</code>、<code>～</code> 两侧皆无空（3 类）。<strong>组合符号</strong>：前为 1 类且后为任意标点，或后为 2 类且前为任意标点时，当中空隙改为 <code>margin-left:-0.5em</code> 不可变（蓝框）。避头禁则为 1+3 类；避尾禁则为 2 类。避头为上一行可调空各 <code>1/n em</code>；避尾分母 <code>n</code> 含全部空隙，仅对可调空写 <code>1/(n-1)em</code>。排完不恢复 UA 断行。若不想改容器样式：<code>applyHangAvoidance(el, { relaxBuiltinLineBreak: false })</code>。
     </p>
 
     <article id="content">
@@ -184,23 +219,15 @@
     </article>
 
     <aside id="line-width-panel" aria-live="polite">
-      <h2 id="line-width-title">行宽分解（字 / 空 / 半 / 合）</h2>
+      <h2 id="line-width-title">行宽分解（字 / 空 / 半 / 合）· em</h2>
       <p class="note" id="line-width-note" style="margin: 0">
-        与 <code>measureLineVisualMetricsPx</code> 同源：<strong>合</strong> = 字 + 空 − <strong>半</strong>（pretext 整字 − 0.5em 盒/行尾 span 占位，每 span 计一次）。
+        与 <code>measureLineVisualMetricsPx</code> 同源：<strong>字</strong> = DOM 逐字 rect；<strong>空</strong> = ts-gap pm；<strong>半</strong> = 半角 span 修正（每 span 计一次）；<strong>合</strong> = 字 + 空 − 半。
       </p>
       <div id="line-width-out"></div>
     </aside>
 
-    <script type="importmap">
-      {
-        "imports": {
-          "@chenglou/pretext": "https://cdn.jsdelivr.net/npm/@chenglou/pretext@0.0.7/dist/layout.js"
-        }
-      }
-    </script>
     <script type="module">
       import Katsuji from '../src/katsuji/index.js';
-      import { attachPretextLineWidth, detachPretextLineWidth } from '../src/pretext/pretext-bridge.js';
 
       window.Katsuji = Katsuji;
 
@@ -210,27 +237,74 @@
         var out = document.getElementById('content-width-val');
         var lwOut = document.getElementById('line-width-out');
         var gapPreview = document.getElementById('gap-preview');
-        var usePretext = document.getElementById('use-pretext');
-        var lwTitle = document.getElementById('line-width-title');
-        var lwNote = document.getElementById('line-width-note');
+        var hangReset = document.getElementById('hang-reset');
+        var hangStep = document.getElementById('hang-step');
+        var hangStepStatus = document.getElementById('hang-step-status');
+        var stepMode = false;
+        var stepCount = 0;
         el.classList.add('marked');
 
-        function syncPretextMeasurer() {
-          var on = !usePretext || usePretext.checked;
-          if (on) attachPretextLineWidth(window.Katsuji);
-          else detachPretextLineWidth(window.Katsuji);
-          if (lwTitle) {
-            lwTitle.textContent = '行宽分解（字 / 空 / 半 / 合）· em';
-          }
-          if (lwNote) {
-            lwNote.innerHTML = on
-              ? '字 = pretext；空 = ts-gap pm；半 = 半角 span 修正；合 = 字+空−半。'
-              : '未注入 pretext：字 = DOM 逐字 rect；半 = 逐字 rect 备用 − 0.5em 盒。';
-          }
-        }
-        syncPretextMeasurer();
         if (gapPreview && gapPreview.checked) el.classList.add('gap-preview');
         Katsuji.apply(el);
+
+        function hangKindLabel(kind) {
+          if (kind === 'combo') return '组合符号';
+          if (kind === 'space-start') return '行首开括号顶格';
+          if (kind === 'space-end') return '行尾标点占宽';
+          if (kind === 'illegal-start') return '行首非法';
+          if (kind === 'illegal-end') return '行尾非法开括号';
+          if (kind === 'surplus') return '行宽填满';
+          return kind || '调整';
+        }
+
+        function clearDebugHits() {
+          var marked = el.querySelectorAll('.ts-debug-hit, .ts-debug-block');
+          for (var i = 0; i < marked.length; i++) {
+            marked[i].classList.remove('ts-debug-hit');
+            marked[i].classList.remove('ts-debug-block');
+          }
+        }
+
+        function markDebugHit(hit) {
+          clearDebugHits();
+          if (!hit) return;
+          if (hit.block) hit.block.classList.add('ts-debug-block');
+          var gaps = hit.gaps || [];
+          for (var g = 0; g < gaps.length; g++) {
+            if (gaps[g] && gaps[g].classList) gaps[g].classList.add('ts-debug-hit');
+          }
+          if (hit.charEl && hit.charEl.classList) hit.charEl.classList.add('ts-debug-hit');
+        }
+
+        function setStepStatus(text) {
+          if (hangStepStatus) hangStepStatus.textContent = text;
+        }
+
+        function describeHit(hit) {
+          var parts = ['步骤 ' + stepCount, hangKindLabel(hit.kind)];
+          if (hit.blockIndex != null && hit.blockIndex >= 0) {
+            parts.push('段落 ' + (hit.blockIndex + 1));
+          }
+          if (hit.lineIndex != null && hit.lineIndex >= 0) {
+            parts.push('行 ' + (hit.lineIndex + 1));
+          }
+          if (hit.ch) parts.push(hit.ch);
+          if (hit.em) parts.push(hit.em);
+          if (hit.kind === 'surplus' && hit.surplusEm != null) {
+            parts.push('余 ' + Number(hit.surplusEm).toFixed(3).replace(/\.?0+$/, '') + 'em');
+          }
+          if (hit.usedPushFallback) parts.push('推出');
+          else if (hit.em && (hit.kind === 'illegal-start' || hit.kind === 'illegal-end' || hit.kind === 'space-end')) {
+            parts.push('挤进');
+          }
+          return parts.join(' · ');
+        }
+
+        function paintAfterLayout() {
+          syncGapPreviewClass();
+          paintGapDemoMarks(el);
+          renderLineWidths();
+        }
 
         function syncGapPreviewClass() {
           if (!gapPreview) return;
@@ -341,15 +415,47 @@
         }
 
         function runHang() {
+          stepMode = false;
+          stepCount = 0;
+          clearDebugHits();
           void el.offsetHeight;
           Katsuji.applyHangAvoidance(el);
-          syncGapPreviewClass();
-          paintGapDemoMarks(el);
-          renderLineWidths();
+          setStepStatus('自动排版');
+          if (hangStep) hangStep.disabled = false;
+          paintAfterLayout();
         }
+
+        function resetToGapsOnly() {
+          stepMode = true;
+          stepCount = 0;
+          clearDebugHits();
+          Katsuji.resetHangAdjustments(el);
+          setStepStatus('已取消 · 按「下一步」逐步调整');
+          if (hangStep) hangStep.disabled = false;
+          paintAfterLayout();
+        }
+
+        function stepOnce() {
+          stepMode = true;
+          var hit = Katsuji.stepHangAvoidance(el);
+          if (hit) {
+            stepCount += 1;
+            markDebugHit(hit);
+            setStepStatus(describeHit(hit));
+            if (hangStep) hangStep.disabled = false;
+          } else {
+            setStepStatus(stepCount ? '步骤 ' + stepCount + ' · 没有更多调整' : '没有可调整的位置');
+            if (hangStep) hangStep.disabled = true;
+          }
+          paintAfterLayout();
+        }
+
         function bump() {
           requestAnimationFrame(function () {
-            requestAnimationFrame(runHang);
+            requestAnimationFrame(function () {
+              if (stepMode) resetToGapsOnly();
+              else runHang();
+            });
           });
         }
         function applyWidthEm(em) {
@@ -369,10 +475,13 @@
             paintGapDemoMarks(el);
           });
         }
-        if (usePretext) {
-          usePretext.addEventListener('change', function () {
-            syncPretextMeasurer();
-            bump();
+        if (hangReset) {
+          hangReset.addEventListener('click', resetToGapsOnly);
+        }
+        if (hangStep) {
+          hangStep.addEventListener('click', function () {
+            if (!stepMode) resetToGapsOnly();
+            stepOnce();
           });
         }
         bump();

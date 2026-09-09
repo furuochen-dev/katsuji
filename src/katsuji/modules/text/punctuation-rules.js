@@ -1,6 +1,6 @@
 /** @layer 0 禁则与组合符号分类（按 ts-gap 侧） */
 
-export var DEFAULT_GAP_BEFORE = '（【「『《〈〔［（' + '\u201C\u2018' + '(';
+export var DEFAULT_GAP_BEFORE = '（【「『《〈〔［' + '\u201C\u2018' + '(';
 export var DEFAULT_GAP_NONE = '…～％‰℃°—';
 export var DEFAULT_GAP_AFTER =
   '，。、；：？！' +
@@ -50,8 +50,18 @@ function isCjkIdeograph(ch) {
   );
 }
 
-/** 行首禁则：1 + 3 */
-export function isForbiddenLineStart(ch) {
+/** 行首 `前有空`：合法，去掉左边的前空 */
+export function isSpaceOnEdgeStart(ch) {
+  return punctGapClass(ch) === 'before';
+}
+
+/** 行尾 `后有空`：可收成半宽 */
+export function isSpaceOnEdgeEnd(ch) {
+  return AFTER_CHARS[ch] === true;
+}
+
+/** 行首 `不能在行头` */
+export function isIllegalOnEdgeStart(ch) {
   if (ch === '\n' || ch === '\r') return false;
   if (ch === ' ' || ch === '\t' || ch === '\u00a0' || ch === '\u3000') return false;
   if (/[0-9a-zA-Z]/.test(ch)) return false;
@@ -60,14 +70,9 @@ export function isForbiddenLineStart(ch) {
   return cls === 'after' || cls === 'none';
 }
 
-/** 行尾禁则：2 */
-export function isBadLineEndOpen(ch) {
+/** 行尾 `前有空`：非法 */
+export function isIllegalOnEdgeEnd(ch) {
   return punctGapClass(ch) === 'before';
-}
-
-/** 行末半角标点候选（1 类，push 成功时包 ts-half-punct） */
-export function isHalfWidthLineEndPunct(ch) {
-  return AFTER_CHARS[ch] === true;
 }
 
 /** 行内标点计数 */

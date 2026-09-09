@@ -4,7 +4,7 @@
 import { hangConfig, mergeHangConfig } from './modules/core/config.js';
 import { punctConfig, mergePunctConfig, applyPunctPreset } from './modules/core/punct-config.js';
 import { apply } from './modules/process/preprocess/segmenter.js';
-import { applyHangAvoidance } from './modules/process/orchestrate.js';
+import { applyHangAvoidance, resetHangAdjustments, stepHangAvoidance } from './modules/process/orchestrate.js';
 import { applyComboSymbols } from './modules/process/preprocess/combo.js';
 import {
   relaxBuiltinLineBreak,
@@ -16,7 +16,6 @@ import {
   measureBlockVisualLines,
   measureRootVisualLines,
   measureLineVisualMetricsPx,
-  setCharWidthMeasurer,
   defaultStrategyDecider,
 } from './modules/measure/line-width.js';
 import {
@@ -35,6 +34,8 @@ const Katsuji = {
   defaultStrategyDecider,
   apply,
   applyHangAvoidance,
+  resetHangAdjustments,
+  stepHangAvoidance,
   applyLineSurplusPaddingByVisualWidth,
   applyComboSymbols,
   relaxBuiltinLineBreak,
@@ -52,7 +53,6 @@ const Katsuji = {
     return lineGapPmSumsPx(items, startIndex, endIndex).gapPmPx;
   },
   comboFixedGapPmPx,
-  setCharWidthMeasurer,
 };
 
 export default Katsuji;

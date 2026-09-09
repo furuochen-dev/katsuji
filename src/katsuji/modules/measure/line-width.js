@@ -1,4 +1,4 @@
-/** 量一行视觉宽：字（pretext/DOM）+ 空（gap pm）− 半角 span 修正；hang/surplus 用此结果 */
+/** 量一行视觉宽：DOM 逐字宽 + 空（gap pm，跨行 combo 不计）− 半角 span 修正；hang/surplus 用此结果 */
 import { win, defaultRoot } from '../env.js';
 import { parseCssLengthToEm } from '../core/dom-util.js';
 import {
@@ -9,8 +9,6 @@ import {
   getItemRect,
 } from './paragraph-items.js';
 import { lineGapPmSumsPx } from './gap-padding-margin.js';
-
-let measureTextCharWidthPxHook = null;
 
 export function getBlockEmPx(block) {
   if (!block || !win?.getComputedStyle) return 16;
@@ -25,14 +23,18 @@ export function getBlockContentWidthPx(block) {
 
 function charItemHalfSpanEl(item) {
   if (!item || item.type !== 'char') return null;
-  var par = item.node && item.node.parentElement;
-  if (!par || !par.classList) return null;
-  if (par.classList.contains('ts-half-punct') || par.classList.contains('ts-line-end-half')) return par;
+  var el = item.node && item.node.parentElement;
+  while (el) {
+    if (el.classList && (el.classList.contains('ts-half-punct') || el.classList.contains('ts-line-end-half'))) {
+      return el;
+    }
+    el = el.parentElement;
+  }
   return null;
 }
 
-function halfEmSpanLayoutPx(span, emPx, pretW) {
-  if (!span) return pretW;
+function halfEmSpanLayoutPx(span, emPx, glyphPx) {
+  if (!span) return glyphPx;
   if (span.classList.contains('ts-half-punct')) {
     return 0.5 * emPx;
   }
@@ -42,20 +44,17 @@ function halfEmSpanLayoutPx(span, emPx, pretW) {
       : win?.getComputedStyle
         ? parseFloat(win.getComputedStyle(span).marginLeft) || 0
         : -0.5 * emPx;
-    return pretW + marPx;
+    return glyphPx + marPx;
   }
-  return pretW;
+  return glyphPx;
 }
 
-function measureCharGlyphWidthPx(item, block, emPx) {
-  if (measureTextCharWidthPxHook) {
-    return measureTextCharWidthPxHook(item.ch, block) || 0;
-  }
+function measureCharGlyphWidthPx(item, emPx) {
   var w = getItemRect(item).width;
   return w > 0 ? w : emPx;
 }
 
-function measureHalfEmCharAdjustPx(items, startIndex, endIndex, block, emPx) {
+function measureHalfEmCharAdjustPx(items, startIndex, endIndex, emPx) {
   var total = 0;
   var spanSeen = [];
   for (var i = startIndex; i <= endIndex && i < items.length; i++) {
@@ -64,23 +63,19 @@ function measureHalfEmCharAdjustPx(items, startIndex, endIndex, block, emPx) {
     if (!span) continue;
     if (spanSeen.indexOf(span) >= 0) continue;
     spanSeen.push(span);
-    var pretW = 0;
+    var glyphPx = 0;
     for (var j = startIndex; j <= endIndex && j < items.length; j++) {
       if (items[j].type !== 'char') continue;
       if (charItemHalfSpanEl(items[j]) !== span) continue;
-      pretW += measureCharGlyphWidthPx(items[j], block, emPx);
+      glyphPx += measureCharGlyphWidthPx(items[j], emPx);
     }
-    var layoutW = halfEmSpanLayoutPx(span, emPx, pretW);
-    if (pretW > layoutW) total += pretW - layoutW;
+    var layoutW = halfEmSpanLayoutPx(span, emPx, glyphPx);
+    if (glyphPx > layoutW) total += glyphPx - layoutW;
   }
   return total;
 }
 
-function measureLineCharsPx(items, startIndex, endIndex, block, emPx, row) {
-  if (measureTextCharWidthPxHook) {
-    var w = measureTextCharWidthPxHook(row.text, block);
-    return w != null ? w : 0;
-  }
+function measureLineCharsPx(items, startIndex, endIndex) {
   var total = 0;
   for (var i = startIndex; i <= endIndex && i < items.length; i++) {
     if (items[i].type !== 'char') continue;
@@ -93,8 +88,8 @@ export function measureLineVisualMetricsPx(block, items, startIndex, endIndex) {
   var row = lineCharsFromItems(items, startIndex, endIndex);
   var gaps = lineGapPmSumsPx(items, startIndex, endIndex);
   var emPx = getBlockEmPx(block);
-  var charPx = measureLineCharsPx(items, startIndex, endIndex, block, emPx, row);
-  var halfEmAdjustPx = measureHalfEmCharAdjustPx(items, startIndex, endIndex, block, emPx);
+  var charPx = measureLineCharsPx(items, startIndex, endIndex);
+  var halfEmAdjustPx = measureHalfEmCharAdjustPx(items, startIndex, endIndex, emPx);
   return {
     text: row.text,
     charCount: row.charCount,
@@ -179,14 +174,19 @@ export function measureRootVisualLines(root, selector) {
 }
 
 var HANG_STRATEGY_TIE_EPS = 1e-6;
+var PULL_MAX_EM = 0.5;
+var PULL_MAX_SLACK_EM = 0.01;
 
 /** @param {'push'|'pull'} tieBreak per-gap 差低于 HANG_STRATEGY_TIE_EPS 时采用 */
 /** @returns {(pullAmountEm: number, pullGapCount: number, pushAmountEm: number, pushGapCount: number) => 'push'|'pull'|'none'} */
 export function defaultStrategyDecider(tieBreak) {
   if (tieBreak !== 'push' && tieBreak !== 'pull') tieBreak = 'pull';
   return function (pullAmountEm, pullGapCount, pushAmountEm, pushGapCount) {
-    var canPull = pullGapCount >= 1;
-    var canPush = pushGapCount >= 1;
+    var canPush = pushGapCount >= 1 && pushAmountEm > 0;
+    var canPull =
+      pullGapCount >= 1 &&
+      pullAmountEm > 0 &&
+      pullAmountEm <= PULL_MAX_EM + PULL_MAX_SLACK_EM;
     if (!canPush && !canPull) return 'none';
     if (!canPush) return 'pull';
     if (!canPull) return 'push';
@@ -225,14 +225,11 @@ export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var usePush = decision === 'push';
   var amountEm = usePush ? pushAmountEm : pullAmountEm;
   var gapCount = usePush ? pushGapCount : pullGapCount;
+  if (!(amountEm > 0) || gapCount < 1) return none;
   var share = usePush ? amountEm / gapCount - 0.001 : -amountEm / gapCount - 0.001;
-  if (!isFinite(share)) return none;
+  if (!isFinite(share) || Math.abs(share) < 0.01) return none;
   return {
     em: share.toFixed(6).replace(/\.?0+$/, '') + 'em',
     usedPushFallback: usePush,
   };
-}
-
-export function setCharWidthMeasurer(fn) {
-  measureTextCharWidthPxHook = typeof fn === 'function' ? fn : null;
 }

@@ -6,14 +6,13 @@ Katsuji 是浏览器端脚本：在标点外侧插入 `ts-gap`，再做避头避
 
 ## 下载
 
-任选一种方式拿到 `katsuji.css`、`katsuji.js`（以及可选的 `pretext-bridge.standalone.js`）。
+任选一种方式拿到 `katsuji.css`、`katsuji.js`。
 
 
 | 文件                             | 必需  | 说明                                                                |
 | ------------------------------ | --- | ----------------------------------------------------------------- |
 | `katsuji.css`                  | 是   | `ts-gap` 等样式                                                      |
 | `katsuji.js`                   | 是   | 主逻辑，`window.Katsuji`                                              |
-| `pretext-bridge.standalone.js` | 否   | 可选；用 [pretext](https://github.com/chenglou/pretext) 做更快、更省资源的字宽测量 |
 
 
 ### npm
@@ -33,12 +32,6 @@ npm install katsuji
 ```html
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@0.1.1/dist/katsuji.css">
 <script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.1/dist/katsuji.js"></script>
-```
-
-字宽 bridge（可选）：
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.1/dist/pretext-bridge.standalone.js"></script>
 ```
 
 ### 本地
@@ -99,22 +92,6 @@ npm install katsuji
 
 `apply` / `applyHangAvoidance` 写法不变。
 
-### 可选：快速字宽测量
-
-默认用 DOM 逐字测量，准确但较慢。需要更好性能时，在 `**katsuji.js` 之后** 再引 `pretext-bridge.standalone.js`（本地路径或 CDN 均可）；内部通过 [pretext](https://github.com/chenglou/pretext) 量宽，比 DOM 更省开销：
-
-```html
-<script src="katsuji.js"></script>
-<script src="pretext-bridge.standalone.js"></script>
-<script>
-  var root = document.getElementById('content');
-  Katsuji.apply(root);
-  Katsuji.applyHangAvoidance(root);
-</script>
-```
-
-加载后会自动注册 `Katsuji.setCharWidthMeasurer`，排版逻辑与未加载时相同。
-
 ### 路径与多页
 
 - 多个文章块：对每个根节点分别调用，或包一层父元素后对父元素调用一次。
@@ -127,9 +104,8 @@ npm install katsuji
 
 | 页面                                                           | 说明                     |
 | ------------------------------------------------------------ | ---------------------- |
-| [examples/static.html](examples/static.html)                 | 最小静态页                  |
-| [examples/static-pretext.html](examples/static-pretext.html) | 带 pretext bridge（快速字宽） |
-| [examples/demo.html](examples/demo.html)                     | 调试面板                   |
+| [examples/static.html](examples/static.html) | 最小静态页 |
+| [examples/demo.html](examples/demo.html)     | 调试面板   |
 
 
 ---
@@ -170,7 +146,7 @@ Katsuji.applyHangAvoidance(root, {
 - `'pull'`：采用挤进（负 margin）
 - `'none'`：两侧皆不可用，本行跳过
 
-内置默认策略 `Katsuji.defaultStrategyDecider(tieBreak)`：`tieBreak` 为 `'pull'` 或 `'push'`。比较两侧 per-gap 绝对量，更小者胜出；差值低于 `1e-6` 时采用 `tieBreak`；无法判定则 `'none'`。
+内置默认策略 `Katsuji.defaultStrategyDecider(tieBreak)`：`tieBreak` 为 `'pull'` 或 `'push'`。比较两侧 per-gap 绝对量，更小者胜出；差值低于 `1e-6` 时采用 `tieBreak`。挤进须为正且不超过 `0.5em`（允许多 `0.01em`），否则有推出就推、没有就跳过。无法判定则 `'none'`。
 
 根据 JIS X 4051:2004，我们的默认是相等时拉入；虽说 JIS 说的是所有情况都优先拉入，若这符合你的偏好，可以如下自定义。
 
@@ -232,6 +208,5 @@ Katsuji.config.punct;
 Katsuji.buildBlockLayout(block);
 Katsuji.measureRootVisualLines(root);
 Katsuji.measureLineVisualMetricsPx(block, items, start, end);
-Katsuji.setCharWidthMeasurer(fn);
 ```
 

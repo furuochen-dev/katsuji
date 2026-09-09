@@ -17,14 +17,41 @@ export function comboFixedGapPmPx(gapEl) {
   return gapPmPx(gapEl);
 }
 
+function isSignificantCharItem(item) {
+  if (!item || item.type !== 'char') return false;
+  var ch = item.ch;
+  return ch !== '\n' && ch !== '\r' && ch !== ' ' && ch !== '\t' && ch !== '\u00a0' && ch !== '\u3000';
+}
+
+/** combo 的 −0.5em 只在两侧字都在本行时缩短行宽；折到下一行的那半不算进本行 */
+function comboPairBothOnLine(items, gapIndex, startIndex, endIndex) {
+  var prev = -1;
+  var next = -1;
+  for (var i = gapIndex - 1; i >= 0; i--) {
+    if (!isSignificantCharItem(items[i])) continue;
+    prev = i;
+    break;
+  }
+  for (var k = gapIndex + 1; k < items.length; k++) {
+    if (!isSignificantCharItem(items[k])) continue;
+    next = k;
+    break;
+  }
+  return prev >= startIndex && next >= 0 && next <= endIndex;
+}
+
 export function lineGapPmSumsPx(items, startIndex, endIndex) {
   var gapPm = 0;
   var comboPm = 0;
   for (var j = startIndex; j <= endIndex && j < items.length; j++) {
     if (items[j].type !== 'gap') continue;
-    var px = gapPmPx(items[j].el);
+    var el = items[j].el;
+    if (el.getAttribute('data-ts-combo-fixed') === '1' && !comboPairBothOnLine(items, j, startIndex, endIndex)) {
+      continue;
+    }
+    var px = gapPmPx(el);
     gapPm += px;
-    if (items[j].el.getAttribute('data-ts-combo-fixed') === '1') comboPm += px;
+    if (el.getAttribute('data-ts-combo-fixed') === '1') comboPm += px;
   }
   return { gapPmPx: gapPm, comboFixedPmPx: comboPm };
 }
@@ -54,6 +81,13 @@ export function addGapPaddingEm(gapEl, deltaEm, emPx) {
 export function gapsAlreadyHavePullMargin(gaps, emPx) {
   for (var i = 0; i < gaps.length; i++) {
     if (gapMarginEm(gaps[i], emPx) < -1e-6) return true;
+  }
+  return false;
+}
+
+export function gapsAlreadyHaveHangMargin(gaps, emPx) {
+  for (var i = 0; i < gaps.length; i++) {
+    if (Math.abs(gapMarginEm(gaps[i], emPx)) > 1e-6) return true;
   }
   return false;
 }

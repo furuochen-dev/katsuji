@@ -75,5 +75,20 @@ export function resetGapStyles(block) {
     spans[i].style.paddingLeft = '0px';
     spans[i].style.marginLeft = '0px';
     spans[i].removeAttribute('data-ts-head-punct-trail');
+    spans[i].removeAttribute('data-ts-line-start-open-gap');
+  }
+}
+
+/** 清掉 hang / combo / surplus 写在 gap 上的样式，保留 ts-gap 本身 */
+export function resetAllGapStyles(block) {
+  var spans = block.querySelectorAll('span.ts-gap');
+  for (var i = 0; i < spans.length; i++) {
+    var el = spans[i];
+    el.style.paddingLeft = '0px';
+    el.style.marginLeft = '0px';
+    el.removeAttribute('data-ts-head-punct-trail');
+    el.removeAttribute('data-ts-line-start-open-gap');
+    el.removeAttribute('data-ts-combo-fixed');
+    el.classList.remove('ts-gap-combo');
   }
 }
