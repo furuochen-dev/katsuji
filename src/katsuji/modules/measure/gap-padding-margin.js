@@ -56,15 +56,6 @@ export function lineGapPmSumsPx(items, startIndex, endIndex) {
   return { gapPmPx: gapPm, comboFixedPmPx: comboPm };
 }
 
-export function gapMarginEm(gapEl, emPx) {
-  var inline = gapEl.style.marginLeft;
-  if (inline) return parseCssLengthToEm(inline, emPx);
-  if (!win?.getComputedStyle || emPx <= 0) return 0;
-  var mar = parseFloat(win.getComputedStyle(gapEl).marginLeft);
-  if (!isFinite(mar)) return 0;
-  return mar / emPx;
-}
-
 export function readGapPaddingEm(gapEl, emPx) {
   var inline = gapEl.style.paddingLeft;
   if (inline) return parseCssLengthToEm(inline, emPx);
@@ -76,18 +67,4 @@ export function addGapPaddingEm(gapEl, deltaEm, emPx) {
   var next = readGapPaddingEm(gapEl, emPx) + deltaEm;
   if (Math.abs(next) < 1e-9) gapEl.style.paddingLeft = '0';
   else gapEl.style.paddingLeft = next.toFixed(6).replace(/\.?0+$/, '') + 'em';
-}
-
-export function gapsAlreadyHavePullMargin(gaps, emPx) {
-  for (var i = 0; i < gaps.length; i++) {
-    if (gapMarginEm(gaps[i], emPx) < -1e-6) return true;
-  }
-  return false;
-}
-
-export function gapsAlreadyHaveHangMargin(gaps, emPx) {
-  for (var i = 0; i < gaps.length; i++) {
-    if (Math.abs(gapMarginEm(gaps[i], emPx)) > 1e-6) return true;
-  }
-  return false;
 }

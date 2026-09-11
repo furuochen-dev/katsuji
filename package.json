@@ -1,9 +1,11 @@
 {
   "name": "katsuji",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "CJKV Automatic Dynamic Typesetting Engine",
   "private": false,
   "type": "module",
+  "main": "dist/katsuji.js",
+  "style": "dist/katsuji.css",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/furuochen-dev/katsuji.git"
@@ -21,9 +23,12 @@
     "build": "npm run build:katsuji",
     "build:katsuji": "node scripts/bundle-katsuji.mjs",
     "dev": "node scripts/dev.mjs",
-    "demo": "npx --yes serve . -p 4173"
+    "demo": "npx --yes serve . -p 4173",
+    "test": "node --test test/*.test.js",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "esbuild": "^0.25.0"
   }
 }

@@ -1,16 +1,12 @@
-/** 编排 */
+/** 编排：整篇 1–2 步之后，每段从前往后一行做完 3–5 */
 import { mergeHangConfig } from '../core/config.js';
-import { applyComboSymbolsBlock } from './preprocess/combo.js';
 import { resetGapStyles, resetAllGapStyles } from './preprocess/segmenter.js';
 import { unwrapHalfPunctInBlock, unwrapNoneRuns } from '../core/punct-wrap.js';
-import { applyProcessPunct } from './postprocess/process-punct.js';
-import {
-  applyLineSurplusPaddingByVisualWidth,
-  applyNextLineSurplusPadding,
-  clearSurplusDone,
-} from './postprocess/surplus.js';
+import { glueAdjacentNonePunct } from './preprocess/combo.js';
 import { relaxBuiltinLineBreak } from './preprocess/line-break.js';
 import { defaultRoot } from '../env.js';
+import { buildBlockLayout } from '../measure/line-width.js';
+import { processLine } from './process-line.js';
 
 function eachTypesetBlock(root, fn) {
   var blocks = root.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li');
@@ -21,32 +17,37 @@ function eachTypesetBlock(root, fn) {
   }
 }
 
+function typesetBlocks(root) {
+  var out = [];
+  eachTypesetBlock(root, function (block) {
+    out.push(block);
+  });
+  return out;
+}
+
+function prepareBlock(block) {
+  resetGapStyles(block);
+  unwrapHalfPunctInBlock(block);
+  glueAdjacentNonePunct(block);
+}
+
 export function applyHangAvoidance(root, options) {
   root = defaultRoot(root);
   if (!root) return;
   options = options || {};
   var hangOpts = mergeHangConfig(options.hang);
-  var maxIter = options.maxIterations != null ? options.maxIterations : 24;
   if (options.relaxBuiltinLineBreak !== false) {
     relaxBuiltinLineBreak(root);
     void root.offsetHeight;
   }
   eachTypesetBlock(root, function (block) {
-    if (options.applyComboSymbols !== false) {
-      applyComboSymbolsBlock(block);
-    }
-    resetGapStyles(block);
-    unwrapHalfPunctInBlock(block);
-    var iter = 0;
-    while (iter < maxIter) {
-      var hit = applyProcessPunct(block, hangOpts);
-      if (!hit) break;
-      iter++;
-    }
-  });
-  eachTypesetBlock(root, function (block) {
-    if (options.applyLineSurplusPadding !== false) {
-      applyLineSurplusPaddingByVisualWidth(block);
+    prepareBlock(block);
+    var L = 0;
+    while (true) {
+      var layout = buildBlockLayout(block);
+      if (!layout || L >= layout.heads.length) break;
+      processLine(block, L, hangOpts);
+      L += 1;
     }
   });
 }
@@ -59,88 +60,69 @@ export function resetHangAdjustments(root) {
     resetAllGapStyles(block);
     unwrapHalfPunctInBlock(block);
     unwrapNoneRuns(block);
-    clearSurplusDone(block);
   });
   if (root.nodeType === 1) {
     root.removeAttribute('data-ts-step-phase');
+    root.removeAttribute('data-ts-step-block');
+    root.removeAttribute('data-ts-step-line');
     relaxBuiltinLineBreak(root);
     void root.offsetHeight;
   }
 }
 
-function stepOneHang(root, hangOpts) {
-  var found = null;
-  eachTypesetBlock(root, function (block, b) {
-    var hit = applyProcessPunct(block, hangOpts);
-    if (!hit) return;
-    hit.block = block;
-    hit.blockIndex = b;
-    found = hit;
-    return true;
-  });
-  return found;
-}
-
-function stepOneSurplus(root) {
-  var found = null;
-  eachTypesetBlock(root, function (block, b) {
-    var hit = applyNextLineSurplusPadding(block);
-    if (!hit) return;
-    hit.kind = 'surplus';
-    hit.block = block;
-    hit.blockIndex = b;
-    found = hit;
-    return true;
-  });
-  return found;
-}
-
-function beginSurplusPhase(root, surplusOn) {
-  if (root.nodeType === 1) root.setAttribute('data-ts-step-phase', 'surplus');
-  return surplusOn ? stepOneSurplus(root) : null;
-}
-
 /**
- * 单步：组合符号 → 行边界空 / 行边界非法 → 行宽填满。
- * @returns {object|null} 本步结果；没有更多调整时为 null
+ * 单步：一次做完一行的第 3–5 步。
+ * @returns {object|null} 本步结果；没有更多行时为 null
  */
 export function stepHangAvoidance(root, options) {
   root = defaultRoot(root);
   if (!root) return null;
   options = options || {};
   var hangOpts = mergeHangConfig(options.hang);
-  var surplusOn = options.applyLineSurplusPadding !== false;
-  var phase = root.getAttribute && root.getAttribute('data-ts-step-phase');
-
-  if (phase === 'surplus') {
-    return surplusOn ? stepOneSurplus(root) : null;
-  }
 
   if (options.relaxBuiltinLineBreak !== false) {
     relaxBuiltinLineBreak(root);
     void root.offsetHeight;
   }
 
-  if (options.applyComboSymbols !== false) {
-    var comboHit = null;
-    eachTypesetBlock(root, function (block, b) {
-      var applied = applyComboSymbolsBlock(block, 1);
-      if (!applied.length) return;
-      comboHit = {
-        kind: 'combo',
-        block: block,
-        blockIndex: b,
-        lineIndex: -1,
-        gaps: applied,
-        count: applied.length,
-      };
-      return true;
-    });
-    if (comboHit) return comboHit;
+  if (root.getAttribute && root.getAttribute('data-ts-step-phase') !== 'lines') {
+    eachTypesetBlock(root, prepareBlock);
+    if (root.nodeType === 1) {
+      root.setAttribute('data-ts-step-phase', 'lines');
+      root.setAttribute('data-ts-step-block', '0');
+      root.setAttribute('data-ts-step-line', '0');
+    }
   }
 
-  var found = stepOneHang(root, hangOpts);
-  if (found) return found;
+  var blocks = typesetBlocks(root);
+  var b = parseInt(root.getAttribute && root.getAttribute('data-ts-step-block'), 10) || 0;
+  var L = parseInt(root.getAttribute && root.getAttribute('data-ts-step-line'), 10) || 0;
 
-  return beginSurplusPhase(root, surplusOn);
+  while (b < blocks.length) {
+    var block = blocks[b];
+    var layout = buildBlockLayout(block);
+    if (!layout || L >= layout.heads.length) {
+      b += 1;
+      L = 0;
+      continue;
+    }
+    var hit = processLine(block, L, hangOpts);
+    var blockIndex = b;
+    L += 1;
+    var after = buildBlockLayout(block);
+    if (!after || L >= after.heads.length) {
+      b += 1;
+      L = 0;
+    }
+    if (root.nodeType === 1) {
+      root.setAttribute('data-ts-step-block', String(b));
+      root.setAttribute('data-ts-step-line', String(L));
+    }
+    if (hit) {
+      hit.block = block;
+      hit.blockIndex = blockIndex;
+      return hit;
+    }
+  }
+  return null;
 }

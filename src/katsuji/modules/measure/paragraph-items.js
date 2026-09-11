@@ -83,6 +83,20 @@ export function lineItemBounds(items, heads, lineIndex) {
   return { lineIndex: lineIndex, startIndex: startIndex, endIndex: endIndex };
 }
 
+export function isParagraphFirstLine(L) {
+  return L === 0;
+}
+
+export function isParagraphLastLine(layout, L) {
+  for (var i = layout.heads.length - 1; i >= 0; i--) {
+    var range = lineItemBounds(layout.items, layout.heads, i);
+    if (firstSignificantCharIndexOnLine(layout.items, range.startIndex, range.endIndex + 1) >= 0) {
+      return L === i;
+    }
+  }
+  return false;
+}
+
 export function lineCharsFromItems(items, startIndex, endIndex) {
   var text = '';
   var count = 0;
@@ -180,4 +194,28 @@ export function collectGapsBetween(items, startIncl, endIncl, opts) {
     filtered.push(out[k]);
   }
   return filtered;
+}
+
+/**
+ * 第 5 步可调缝：压入含行尾 `后有空` 后面那条（抽上来后变接缝）；
+ * 推出只动行内，行最末那条不动。
+ */
+export function collectLineEndHangGaps(items, range, lastIdx) {
+  var interiorGaps = [];
+  var trailingGaps = [];
+  if (lastIdx >= 0 && range) {
+    interiorGaps = collectGapsBetween(items, range.startIndex, lastIdx, {
+      skipComboFixed: true,
+      omitLineStart: true,
+    });
+    trailingGaps = collectGapsBetween(items, lastIdx + 1, range.endIndex, {
+      skipComboFixed: true,
+    });
+  }
+  return {
+    interiorGaps: interiorGaps,
+    trailingGaps: trailingGaps,
+    pullGaps: interiorGaps.concat(trailingGaps),
+    pushGaps: interiorGaps,
+  };
 }

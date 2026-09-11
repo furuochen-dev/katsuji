@@ -1,26 +1,20 @@
-/** 行边界的空：行首 `前有空` 顶格；行尾 `后有空` 占半宽 */
+/** 第 3 步：行首 `前有空` 顶格。段首行不做。 */
 import {
-  lineItemBounds,
   firstSignificantCharIndexOnLine,
-  lastSignificantCharIndexOnLine,
-  collectGapsBetween,
   gapElAdjacentBeforeChar,
+  isParagraphFirstLine,
 } from '../../measure/paragraph-items.js';
-import { isSpaceOnEdgeStart, isSpaceOnEdgeEnd, isIllegalOnEdgeEnd } from '../../text/punctuation-rules.js';
+import { isSpaceOnEdgeStart } from '../../text/punctuation-rules.js';
 import {
   wrapCharAsLineStartOpen,
   charItemIsHalfPunctWrapped,
   glueLineStartOpenToNext,
-  wrapTrailingAfterPunctOnLine,
 } from '../../core/punct-wrap.js';
-import {
-  applyMarginToGaps,
-  punctHit,
-  decideHangOnGaps,
-} from './edge-shared.js';
+import { punctHit } from './edge-shared.js';
 
-/** 行首是 `前有空`：去掉前空，0.5em 盒只露右边的墨 */
+/** 行首是 `前有空`：去掉前空，0.5em 盒只露右边的墨。段首行不做。 */
 export function trySpaceOnEdgeStart(layout, L) {
+  if (isParagraphFirstLine(L)) return false;
   var items = layout.items;
   var heads = layout.heads;
   var lineStart = heads[L];
@@ -43,70 +37,4 @@ export function trySpaceOnEdgeStart(layout, L) {
     ch: items[sig].ch,
     charEl: charEl,
   });
-}
-
-/** 行尾是 `后有空`：挤或推缝；推出时半角盒字靠左 */
-export function trySpaceOnEdgeEnd(layout, L, hangOpts) {
-  var items = layout.items;
-  var heads = layout.heads;
-
-  var ls = heads[L];
-  var nxt = L + 1 < heads.length ? heads[L + 1] : items.length;
-  var lastIdx = lastSignificantCharIndexOnLine(items, ls, nxt);
-  if (lastIdx < 0) return false;
-  if (L === heads.length - 1) return false;
-  if (!isSpaceOnEdgeEnd(items[lastIdx].ch)) return false;
-  if (charItemIsHalfPunctWrapped(items[lastIdx])) return false;
-
-  var range = lineItemBounds(items, heads, L);
-  var interiorGaps = collectGapsBetween(items, range.startIndex, lastIdx, {
-    skipComboFixed: true,
-  });
-  var trailingGaps = collectGapsBetween(items, lastIdx + 1, range.endIndex, {
-    skipComboFixed: true,
-  });
-  var pullGaps = interiorGaps.concat(trailingGaps);
-  if (pullGaps.length < 1) return false;
-
-  var pullGapCount = pullGaps.length;
-  if (L + 1 < heads.length) {
-    var nextEnd = L + 2 < heads.length ? heads[L + 2] : items.length;
-    var nextSig = firstSignificantCharIndexOnLine(items, nxt, nextEnd);
-    // 挤进会把下一行行首抽到本行行尾；下一行开头是 `前有空` 就不能挤，改推
-    if (nextSig >= 0 && isIllegalOnEdgeEnd(items[nextSig].ch)) pullGapCount = 0;
-  }
-
-  var margin = decideHangOnGaps(layout, range.startIndex, range.endIndex, hangOpts, {
-    pullBaseEm: 1,
-    pushBaseEm: 0.5,
-    pullGapCount: pullGapCount,
-    pushGapCount: interiorGaps.length,
-  });
-  if (!margin) return false;
-
-  var gapsToApply = margin.usedPushFallback ? interiorGaps : pullGaps;
-  var charEl = null;
-  if (margin.usedPushFallback) {
-    charEl = wrapTrailingAfterPunctOnLine(items, ls, nxt);
-  }
-  if (gapsToApply.length > 0) {
-    applyMarginToGaps(gapsToApply, margin.em);
-  }
-  return punctHit('space-end', L, gapsToApply, {
-    ch: items[lastIdx].ch,
-    em: margin.em,
-    usedPushFallback: margin.usedPushFallback,
-    charEl: charEl,
-  });
-}
-
-export function applySpaceOnEdge(layout, hangOpts) {
-  var heads = layout.heads;
-  for (var L = 0; L < heads.length; L++) {
-    var hit = trySpaceOnEdgeStart(layout, L);
-    if (hit) return hit;
-    hit = trySpaceOnEdgeEnd(layout, L, hangOpts);
-    if (hit) return hit;
-  }
-  return false;
 }

@@ -2,18 +2,22 @@
 
 对外入口：`src/katsuji/index.js`（import 各模块并组装 `Katsuji` API）。
 
-构建：`npm run build:katsuji`（esbuild → `dist/katsuji.js`）  
+构建：`npm run build`（esbuild → `dist/katsuji.js`）  
 开发：`npm run dev`（监听重建）
 
 ## 目录
 
 ```
-core/         config、dom-util、punct-wrap
+core/         config、dom-util、punct-wrap、punct-config
 text/         punctuation-rules
 measure/      段落结构、gap 量宽、行宽
-preprocess/   line-break、segmenter、combo
-postprocess/  space-on-edge、illegal-on-edge、process-punct、surplus
-process/      orchestrate
+process/
+  typeset-rules.js   第 4–5 步纯规则
+  process-line.js    一行 3→4→5
+  orchestrate.js     整篇 / 步进
+  line-end.js        第 5 步
+  preprocess/        line-break、segmenter、combo
+  postprocess/       space-on-edge（第 3 步）、surplus（可选填满）
 env.js        浏览器 document/window 引用
 ```
 

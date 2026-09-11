@@ -153,12 +153,6 @@ export function wrapCharAsLineStartOpen(item) {
   return span;
 }
 
-export function wrapCharAsLineEndHalf(item) {
-  return wrapCharInHalfSpan(item, 'ts-line-end-half', 'data-ts-line-end-half', {
-    marginLeft: '-0.5em',
-  });
-}
-
 function closestNamedSpan(node, className) {
   var el = node && node.parentElement;
   while (el) {
@@ -171,9 +165,4 @@ function closestNamedSpan(node, className) {
 export function charItemIsHalfPunctWrapped(item) {
   if (!item || item.type !== 'char') return false;
   return !!closestNamedSpan(item.node, 'ts-half-punct');
-}
-
-export function charItemIsLineEndHalfWrapped(item) {
-  if (!item || item.type !== 'char') return false;
-  return !!closestNamedSpan(item.node, 'ts-line-end-half');
 }

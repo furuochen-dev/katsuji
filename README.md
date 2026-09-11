@@ -1,7 +1,5 @@
 # 活字.js · Katsuji
 
-![Preview](/preview.png)
-
 一个CJKV方块字浏览器自动动态排版引擎，兼容静态网页。
 
 **安装**： [INSTALL.md](INSTALL.md)

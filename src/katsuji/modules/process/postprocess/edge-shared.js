@@ -34,10 +34,3 @@ export function decideHangOnGaps(layout, startIndex, endIndex, hangOpts, amounts
   if (!margin.em) return null;
   return margin;
 }
-
-export function applyHangToGaps(layout, startIndex, endIndex, gaps, hangOpts, amounts) {
-  var margin = decideHangOnGaps(layout, startIndex, endIndex, hangOpts, amounts);
-  if (!margin) return null;
-  applyMarginToGaps(gaps, margin.em);
-  return margin;
-}

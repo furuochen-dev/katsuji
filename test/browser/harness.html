@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <title>Katsuji pipeline harness</title>
+    <link rel="stylesheet" href="../../src/katsuji/styles/katsuji.css" />
+    <style>
+      body {
+        margin: 0;
+        font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+        font-size: 16px;
+        line-height: 1.25;
+      }
+      #host {
+        width: 16em;
+        padding: 0;
+      }
+      #host p {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      #host span.ts-gap {
+        display: inline-block;
+        vertical-align: baseline;
+        width: 0;
+        min-height: 1ex;
+        box-sizing: content-box;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="host"></div>
+    <script type="module">
+      try {
+        var mod = await import('../../src/katsuji/index.js');
+        window.Katsuji = mod.default;
+        window.__katsujiReady = true;
+      } catch (err) {
+        window.__katsujiError = String(err && err.stack ? err.stack : err);
+        window.__katsujiReady = false;
+      }
+    </script>
+  </body>
+</html>

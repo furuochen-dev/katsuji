@@ -16,6 +16,8 @@ scripts/
 
 ```bash
 npm install
+npm test               # Node 规则测试
+npm run test:browser   # Playwright（test/browser）
 npm run build          # dist/katsuji.js + katsuji.css
 npm run dev            # 监听 src/katsuji，自动重建 dist（测 static.html 等用）
 npm run demo           # http://localhost:4173/examples/demo.html（直接 import 源码，无需 build）
@@ -23,6 +25,7 @@ npm run demo           # http://localhost:4173/examples/demo.html（直接 impor
 
 | 命令 | 作用 |
 |------|------|
-| `npm run build` | 完整构建 |
-| `npm run build:katsuji` | 仅主库 |
+| `npm test` | `test/*.test.js` |
+| `npm run test:browser` | Playwright 流水线 |
+| `npm run build` | `dist/katsuji.js` + `katsuji.css` |
 | `npm run dev` | watch `dist/katsuji.js` |

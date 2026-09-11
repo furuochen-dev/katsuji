@@ -96,7 +96,50 @@
         outline-offset: 1px;
         background: rgba(255, 90, 70, 0.22);
       }
+      .demo-stage {
+        display: flex;
+        align-items: stretch;
+        gap: 0.2rem;
+      }
+      #line-cursors {
+        position: relative;
+        flex: 0 0 2.15rem;
+        width: 2.15rem;
+        pointer-events: none;
+      }
+      .line-cursor {
+        position: absolute;
+        left: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.05rem;
+        transform: translateY(-50%);
+        font-size: 0.68rem;
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        user-select: none;
+      }
+      .line-cursor-mark {
+        font-size: 0.85rem;
+        line-height: 1;
+      }
+      .line-cursor-done {
+        color: #b42318;
+      }
+      .line-cursor-next {
+        color: #3f6212;
+      }
+      .line-cursor-done .line-cursor-mark {
+        color: #c43030;
+      }
+      .line-cursor-next .line-cursor-mark {
+        color: #4d7c0f;
+      }
       #content {
+        flex: 1 1 auto;
+        min-width: 0;
         background: #fff;
         border: 1px solid #e3ddd0;
         border-radius: 10px;
@@ -189,12 +232,12 @@
       <output id="hang-step-status">自动排版</output>
     </div>
     <p class="note">
-      中文排版里浏览器会按禁则类规则断行（接近 <code>line-break: strict</code>），常<strong>整字挪到行尾</strong>，行首几乎不会出现禁则标点，于是本脚本的「检测到行首禁则再调
-      <code>ts-gap</code>」永远不触发。<code>Katsuji.applyHangAvoidance()</code> 默认会在容器上设 <code>line-break: anywhere</code>，先<strong>关掉这类 UA 断行约束</strong>，再用我们自己的
-      <code>ts-gap</code>：句读、闭括号等<strong>之后</strong>（1 类）；左括、左引、《 等<strong>之前</strong>（2 类，带 <code>data-ts-open-gap</code>）；<code>…</code>、<code>～</code> 两侧皆无空（3 类）。<strong>组合符号</strong>：前为 1 类且后为任意标点，或后为 2 类且前为任意标点时，当中空隙改为 <code>margin-left:-0.5em</code> 不可变（蓝框）。避头禁则为 1+3 类；避尾禁则为 2 类。避头为上一行可调空各 <code>1/n em</code>；避尾分母 <code>n</code> 含全部空隙，仅对可调空写 <code>1/(n-1)em</code>。排完不恢复 UA 断行。若不想改容器样式：<code>applyHangAvoidance(el, { relaxBuiltinLineBreak: false })</code>。
+      流水线见仓库根目录 <code>TYPESET.md</code>。「下一步」一次做完<strong>一行</strong>（第 3–5 步）。段首行跳过顶格，段末行跳过行尾处理。步进时左边红 <strong>▶刚</strong> 指刚做完的行，绿 <strong>▷下</strong> 指接下来要做的行。<code>applyHangAvoidance</code> 会把容器设成 <code>line-break: anywhere</code>，排完不改回来。
     </p>
 
-    <article id="content">
+    <div class="demo-stage">
+      <div id="line-cursors" aria-hidden="true"></div>
+      <article id="content">
       <p>
         他说，《红楼梦》是一部奇书，而「脂砚斋」批语更让读者着迷：你怎么看？
       </p>
@@ -216,7 +259,8 @@
       <p>
         水果摊上有苹果、香蕉、橘子，价格不贵，味道也好……
       </p>
-    </article>
+      </article>
+    </div>
 
     <aside id="line-width-panel" aria-live="polite">
       <h2 id="line-width-title">行宽分解（字 / 空 / 半 / 合）· em</h2>
@@ -240,19 +284,20 @@
         var hangReset = document.getElementById('hang-reset');
         var hangStep = document.getElementById('hang-step');
         var hangStepStatus = document.getElementById('hang-step-status');
+        var lineCursors = document.getElementById('line-cursors');
         var stepMode = false;
         var stepCount = 0;
+        var lastStepHit = null;
         el.classList.add('marked');
 
         if (gapPreview && gapPreview.checked) el.classList.add('gap-preview');
         Katsuji.apply(el);
 
         function hangKindLabel(kind) {
-          if (kind === 'combo') return '组合符号';
+          if (kind === 'line') return '一行';
+          if (kind === 'combo') return '连写';
           if (kind === 'space-start') return '行首开括号顶格';
-          if (kind === 'space-end') return '行尾标点占宽';
-          if (kind === 'illegal-start') return '行首非法';
-          if (kind === 'illegal-end') return '行尾非法开括号';
+          if (kind === 'line-end') return '行尾';
           if (kind === 'surplus') return '行宽填满';
           return kind || '调整';
         }
@@ -288,22 +333,129 @@
           if (hit.lineIndex != null && hit.lineIndex >= 0) {
             parts.push('行 ' + (hit.lineIndex + 1));
           }
+          if (hit.branch === '5.1') parts.push('禁则');
+          if (hit.branch === '5.2') parts.push('撑行');
+          if (hit.parts && hit.parts.length) {
+            var sub = [];
+            for (var s = 0; s < hit.parts.length; s++) sub.push(hangKindLabel(hit.parts[s].kind));
+            parts.push(sub.join('+'));
+          }
           if (hit.ch) parts.push(hit.ch);
           if (hit.em) parts.push(hit.em);
-          if (hit.kind === 'surplus' && hit.surplusEm != null) {
-            parts.push('余 ' + Number(hit.surplusEm).toFixed(3).replace(/\.?0+$/, '') + 'em');
-          }
           if (hit.usedPushFallback) parts.push('推出');
-          else if (hit.em && (hit.kind === 'illegal-start' || hit.kind === 'illegal-end' || hit.kind === 'space-end')) {
-            parts.push('挤进');
-          }
+          else if (hit.em && hit.kind === 'line') parts.push('挤进');
+          if (hit.noop) parts.push('无调整');
           return parts.join(' · ');
+        }
+
+        function typesetBlocks() {
+          var nodes = el.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li');
+          var out = [];
+          for (var i = 0; i < nodes.length; i++) {
+            var block = nodes[i];
+            if (block.closest && block.closest('script, style, textarea, noscript, pre, code')) continue;
+            out.push(block);
+          }
+          return out;
+        }
+
+        function firstCharRectOnLine(block, lineIndex) {
+          var layout = Katsuji.buildBlockLayout(block);
+          if (!layout || lineIndex < 0 || lineIndex >= layout.heads.length) return null;
+          var start = layout.heads[lineIndex];
+          var end = lineIndex + 1 < layout.heads.length ? layout.heads[lineIndex + 1] : layout.items.length;
+          for (var i = start; i < end; i++) {
+            var item = layout.items[i];
+            if (item.type !== 'char') continue;
+            var ch = item.ch;
+            if (ch === '\n' || ch === '\r' || ch === ' ' || ch === '\t' || ch === '\u00a0' || ch === '\u3000') {
+              continue;
+            }
+            var range = document.createRange();
+            range.setStart(item.node, item.offset);
+            range.setEnd(item.node, item.offset + 1);
+            var r = range.getBoundingClientRect();
+            if (r.height > 0) return r;
+          }
+          return null;
+        }
+
+        function cursorTopPx(block, lineIndex) {
+          if (!lineCursors || !block) return null;
+          var r = firstCharRectOnLine(block, lineIndex);
+          if (!r) return null;
+          var host = lineCursors.getBoundingClientRect();
+          return r.top + r.height / 2 - host.top;
+        }
+
+        function nextStepTarget() {
+          if (!stepMode || !hangStep || hangStep.disabled) return null;
+          var blocks = typesetBlocks();
+          if (!blocks.length) return null;
+          var phase = el.getAttribute('data-ts-step-phase');
+          var b = 0;
+          var L = 0;
+          if (phase === 'lines') {
+            b = parseInt(el.getAttribute('data-ts-step-block'), 10) || 0;
+            L = parseInt(el.getAttribute('data-ts-step-line'), 10) || 0;
+          }
+          while (b < blocks.length) {
+            var layout = Katsuji.buildBlockLayout(blocks[b]);
+            if (!layout || L >= layout.heads.length) {
+              b += 1;
+              L = 0;
+              continue;
+            }
+            return { block: blocks[b], lineIndex: L };
+          }
+          return null;
+        }
+
+        function paintLineCursors() {
+          if (!lineCursors) return;
+          lineCursors.innerHTML = '';
+          if (!stepMode) return;
+          var items = [];
+          if (lastStepHit && lastStepHit.block && lastStepHit.lineIndex != null && lastStepHit.lineIndex >= 0) {
+            items.push({
+              kind: 'done',
+              label: '刚',
+              title: '刚执行',
+              top: cursorTopPx(lastStepHit.block, lastStepHit.lineIndex),
+            });
+          }
+          var next = nextStepTarget();
+          if (next) {
+            items.push({
+              kind: 'next',
+              label: '下',
+              title: '接下来要执行',
+              top: cursorTopPx(next.block, next.lineIndex),
+            });
+          }
+          if (items.length === 2 && items[0].top != null && items[1].top != null) {
+            if (Math.abs(items[1].top - items[0].top) < 12) items[1].top = items[0].top + 14;
+          }
+          for (var i = 0; i < items.length; i++) {
+            if (items[i].top == null) continue;
+            var node = document.createElement('div');
+            node.className = 'line-cursor line-cursor-' + items[i].kind;
+            node.title = items[i].title;
+            node.style.top = items[i].top + 'px';
+            node.innerHTML =
+              '<span class="line-cursor-mark">' +
+              (items[i].kind === 'done' ? '▶' : '▷') +
+              '</span>' +
+              items[i].label;
+            lineCursors.appendChild(node);
+          }
         }
 
         function paintAfterLayout() {
           syncGapPreviewClass();
           paintGapDemoMarks(el);
           renderLineWidths();
+          paintLineCursors();
         }
 
         function syncGapPreviewClass() {
@@ -417,6 +569,7 @@
         function runHang() {
           stepMode = false;
           stepCount = 0;
+          lastStepHit = null;
           clearDebugHits();
           void el.offsetHeight;
           Katsuji.applyHangAvoidance(el);
@@ -428,6 +581,7 @@
         function resetToGapsOnly() {
           stepMode = true;
           stepCount = 0;
+          lastStepHit = null;
           clearDebugHits();
           Katsuji.resetHangAdjustments(el);
           setStepStatus('已取消 · 按「下一步」逐步调整');
@@ -440,6 +594,7 @@
           var hit = Katsuji.stepHangAvoidance(el);
           if (hit) {
             stepCount += 1;
+            lastStepHit = hit;
             markDebugHit(hit);
             setStepStatus(describeHit(hit));
             if (hangStep) hangStep.disabled = false;
@@ -484,6 +639,9 @@
             stepOnce();
           });
         }
+        window.addEventListener('resize', function () {
+          if (stepMode) paintLineCursors();
+        });
         bump();
         window.addEventListener('load', bump, { once: true });
         setTimeout(bump, 80);

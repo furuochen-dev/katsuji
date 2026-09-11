@@ -27,11 +27,11 @@ npm install katsuji
 
 ### CDN（jsDelivr，来自 npm 包）
 
-固定版本（推荐，把 `0.1.1` 换成你要的版本）：
+固定版本（推荐，把 `1.0.0` 换成你要的版本）：
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@0.1.1/dist/katsuji.css">
-<script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.1/dist/katsuji.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@1.0.0/dist/katsuji.css">
+<script src="https://cdn.jsdelivr.net/npm/katsuji@1.0.0/dist/katsuji.js"></script>
 ```
 
 ### 本地
@@ -85,9 +85,9 @@ npm install katsuji
 只需把 `href` / `src` 换成 jsDelivr 地址，例如：
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@0.1.1/dist/katsuji.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@1.0.0/dist/katsuji.css">
 <!-- … -->
-<script src="https://cdn.jsdelivr.net/npm/katsuji@0.1.1/dist/katsuji.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katsuji@1.0.0/dist/katsuji.js"></script>
 ```
 
 `apply` / `applyHangAvoidance` 写法不变。
@@ -116,6 +116,7 @@ npm install katsuji
 Katsuji.apply(root);
 Katsuji.applyHangAvoidance(root, options);
 Katsuji.applyComboSymbols(root);
+Katsuji.applyLineSurplusPaddingByVisualWidth(block);
 Katsuji.unrelaxBuiltinLineBreak(root);
 Katsuji.setHangConfig(hangOptions);
 Katsuji.setPunctConfig(punctOptions);
@@ -128,9 +129,16 @@ Katsuji.defaultStrategyDecider(tieBreak);
 ```js
 Katsuji.applyHangAvoidance(root, {
   relaxBuiltinLineBreak: false,
-  applyLineSurplusPadding: false,
-  applyComboSymbols: false,
   hang: { strategyDecider: Katsuji.defaultStrategyDecider('pull') },
+});
+```
+
+行宽填满不在默认流水线里。需要时在避头尾之后自己调：
+
+```js
+Katsuji.applyHangAvoidance(root);
+root.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li').forEach(function (block) {
+  Katsuji.applyLineSurplusPaddingByVisualWidth(block);
 });
 ```
 
@@ -143,10 +151,10 @@ Katsuji.applyHangAvoidance(root, {
 ```
 
 - `'push'`：采用推出（正 margin，可能包半角 span）
-- `'pull'`：采用挤进（负 margin）
+- `'pull'`：采用挤进（负 margin；压入量 ≤ 0 时不抽缝）
 - `'none'`：两侧皆不可用，本行跳过
 
-内置默认策略 `Katsuji.defaultStrategyDecider(tieBreak)`：`tieBreak` 为 `'pull'` 或 `'push'`。比较两侧 per-gap 绝对量，更小者胜出；差值低于 `1e-6` 时采用 `tieBreak`。挤进须为正且不超过 `0.5em`（允许多 `0.01em`），否则有推出就推、没有就跳过。无法判定则 `'none'`。
+内置默认策略 `Katsuji.defaultStrategyDecider(tieBreak)`：`tieBreak` 为 `'pull'` 或 `'push'`。压入不超过 `0.5em`（允许多 `0.01em`）。压入量 ≤ 0 仍压入、可以没有可调缝；压入量 > 0 才要有缝来摊。然后比较两侧 per-gap 绝对量，更小者胜出；差值低于 `1e-6` 时采用 `tieBreak`。推出量不是正数、或每条缝不到 `0.01em`，当没这回事。
 
 根据 JIS X 4051:2004，我们的默认是相等时拉入；虽说 JIS 说的是所有情况都优先拉入，若这符合你的偏好，可以如下自定义。
 
@@ -158,16 +166,6 @@ Katsuji.setHangConfig({ strategyDecider: Katsuji.defaultStrategyDecider('pull') 
 Katsuji.applyHangAvoidance(root, {
   hang: { strategyDecider: Katsuji.defaultStrategyDecider('push') },
 });
-
-// 完全自定义
-Katsuji.setHangConfig({
-  strategyDecider(pullAmountEm, pullGapCount, pushAmountEm, pushGapCount) {
-    if (pullAmountEm <= 0 && pushAmountEm <= 0) return 'none';
-    return pullAmountEm <= pushAmountEm ? 'pull' : 'push';
-  },
-});
-
-Katsuji.config.hang; // 当前 hang 配置（含 strategyDecider）
 ```
 
 ### 标点分类（`setPunctConfig` / `applyPunctPreset`）

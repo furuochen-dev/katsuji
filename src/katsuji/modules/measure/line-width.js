@@ -9,6 +9,11 @@ import {
   getItemRect,
 } from './paragraph-items.js';
 import { lineGapPmSumsPx } from './gap-padding-margin.js';
+import {
+  hangAmountsEm,
+  decideHangStrategy,
+  GAP_SHARE_MIN_EM,
+} from '../process/typeset-rules.js';
 
 export function getBlockEmPx(block) {
   if (!block || !win?.getComputedStyle) return 16;
@@ -173,29 +178,11 @@ export function measureRootVisualLines(root, selector) {
   return out;
 }
 
-var HANG_STRATEGY_TIE_EPS = 1e-6;
-var PULL_MAX_EM = 0.5;
-var PULL_MAX_SLACK_EM = 0.01;
-
 /** @param {'push'|'pull'} tieBreak per-gap 差低于 HANG_STRATEGY_TIE_EPS 时采用 */
 /** @returns {(pullAmountEm: number, pullGapCount: number, pushAmountEm: number, pushGapCount: number) => 'push'|'pull'|'none'} */
 export function defaultStrategyDecider(tieBreak) {
-  if (tieBreak !== 'push' && tieBreak !== 'pull') tieBreak = 'pull';
   return function (pullAmountEm, pullGapCount, pushAmountEm, pushGapCount) {
-    var canPush = pushGapCount >= 1 && pushAmountEm > 0;
-    var canPull =
-      pullGapCount >= 1 &&
-      pullAmountEm > 0 &&
-      pullAmountEm <= PULL_MAX_EM + PULL_MAX_SLACK_EM;
-    if (!canPush && !canPull) return 'none';
-    if (!canPush) return 'pull';
-    if (!canPull) return 'push';
-    var pullPerGap = Math.abs(pullAmountEm / pullGapCount);
-    var pushPerGap = Math.abs(pushAmountEm / pushGapCount);
-    if (Math.abs(pushPerGap - pullPerGap) < HANG_STRATEGY_TIE_EPS) return tieBreak;
-    if (pushPerGap < pullPerGap) return 'push';
-    if (pushPerGap > pullPerGap) return 'pull';
-    return 'none';
+    return decideHangStrategy(pullAmountEm, pullGapCount, pushAmountEm, pushGapCount, tieBreak);
   };
 }
 
@@ -208,14 +195,12 @@ export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var pushGapCount =
     marginOpts.pushGapCount != null ? marginOpts.pushGapCount : marginOpts.gapCount;
   if (!layout) return none;
-  var canPull = pullGapCount >= 1;
-  var canPush = pushGapCount >= 1;
-  if (!canPull && !canPush) return none;
   var pullBaseEm = marginOpts.pullBaseEm != null ? marginOpts.pullBaseEm : 1;
   var pushBaseEm = marginOpts.pushBaseEm != null ? marginOpts.pushBaseEm : 1;
   var lineEm = lineVisualWidthEm(layout, startIndex, endIndex);
-  var pullAmountEm = pullBaseEm + lineEm - layout.maxEm;
-  var pushAmountEm = pushBaseEm + layout.maxEm - lineEm;
+  var amounts = hangAmountsEm(lineEm, layout.maxEm, pullBaseEm, pushBaseEm);
+  var pullAmountEm = amounts.pullAmountEm;
+  var pushAmountEm = amounts.pushAmountEm;
   var decide =
     typeof marginOpts.strategyDecider === 'function'
       ? marginOpts.strategyDecider
@@ -225,9 +210,15 @@ export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var usePush = decision === 'push';
   var amountEm = usePush ? pushAmountEm : pullAmountEm;
   var gapCount = usePush ? pushGapCount : pullGapCount;
+  if (decision === 'pull' && amountEm <= 0) {
+    return { em: '0em', usedPushFallback: false };
+  }
+  if (decision === 'pull' && amountEm < GAP_SHARE_MIN_EM) {
+    return { em: '0em', usedPushFallback: false };
+  }
   if (!(amountEm > 0) || gapCount < 1) return none;
   var share = usePush ? amountEm / gapCount - 0.001 : -amountEm / gapCount - 0.001;
-  if (!isFinite(share) || Math.abs(share) < 0.01) return none;
+  if (!isFinite(share) || Math.abs(share) < GAP_SHARE_MIN_EM) return none;
   return {
     em: share.toFixed(6).replace(/\.?0+$/, '') + 'em',
     usedPushFallback: usePush,

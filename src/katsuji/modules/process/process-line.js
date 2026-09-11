@@ -1,0 +1,96 @@
+/** 一行：第 3 步 → 第 4 步 → 第 5 步 */
+import { buildBlockLayout } from '../measure/line-width.js';
+import { hangConfig } from '../core/config.js';
+import { trySpaceOnEdgeStart } from './postprocess/space-on-edge.js';
+import { glueAdjacentNonePunct, applyComboSymbolsOnLine } from './preprocess/combo.js';
+import { applyLineEndOnLine } from './line-end.js';
+import { lineStepPlan } from './typeset-rules.js';
+import { punctHit } from './postprocess/edge-shared.js';
+
+function collectGapsFromParts(parts) {
+  var gaps = [];
+  var seen = [];
+  for (var i = 0; i < parts.length; i++) {
+    var gs = parts[i].gaps || [];
+    for (var g = 0; g < gs.length; g++) {
+      if (seen.indexOf(gs[g]) >= 0) continue;
+      seen.push(gs[g]);
+      gaps.push(gs[g]);
+    }
+  }
+  return gaps;
+}
+
+function lineHit(L, parts, charEl) {
+  var usedPush = false;
+  var branch = null;
+  var em = null;
+  for (var i = 0; i < parts.length; i++) {
+    if (parts[i].usedPushFallback) usedPush = true;
+    if (parts[i].branch) branch = parts[i].branch;
+    if (parts[i].em) em = parts[i].em;
+  }
+  return {
+    kind: 'line',
+    lineIndex: L,
+    gaps: collectGapsFromParts(parts),
+    parts: parts,
+    charEl: charEl,
+    usedPushFallback: usedPush,
+    branch: branch,
+    em: em,
+    noop: parts.length === 0,
+  };
+}
+
+export function processLine(block, L, hangOpts) {
+  hangOpts = hangOpts || hangConfig;
+  var layout = buildBlockLayout(block);
+  if (!layout || L < 0 || L >= layout.heads.length) return null;
+  var plan = lineStepPlan(L, layout.heads.length);
+  var parts = [];
+  var charEl = null;
+
+  if (plan.step3) {
+    var s3 = trySpaceOnEdgeStart(layout, L);
+    if (s3) {
+      parts.push(s3);
+      if (s3.charEl) charEl = s3.charEl;
+      layout = buildBlockLayout(block);
+      if (!layout || L >= layout.heads.length) return lineHit(L, parts, charEl);
+    }
+  }
+
+  if (plan.step4) {
+    glueAdjacentNonePunct(block);
+    layout = buildBlockLayout(block) || layout;
+    if (layout && L < layout.heads.length) {
+      var comboGaps = applyComboSymbolsOnLine(layout, L);
+      if (comboGaps.length) {
+        parts.push(punctHit('combo', L, comboGaps, { count: comboGaps.length }));
+      }
+    }
+  }
+
+  if (plan.step5) {
+    layout = buildBlockLayout(block);
+    if (layout && L + 1 < layout.heads.length) {
+      var s5 = applyLineEndOnLine(layout, L, hangOpts);
+      if (s5) {
+        parts.push(s5);
+        if (s5.charEl) charEl = s5.charEl;
+        if (!s5.usedPushFallback) {
+          layout = buildBlockLayout(block);
+          if (layout && L < layout.heads.length) {
+            var more = applyComboSymbolsOnLine(layout, L);
+            if (more.length) {
+              parts.push(punctHit('combo', L, more, { count: more.length, afterPull: true }));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return lineHit(L, parts, charEl);
+}

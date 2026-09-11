@@ -5,6 +5,7 @@ import { hangConfig, mergeHangConfig } from './modules/core/config.js';
 import { punctConfig, mergePunctConfig, applyPunctPreset } from './modules/core/punct-config.js';
 import { apply } from './modules/process/preprocess/segmenter.js';
 import { applyHangAvoidance, resetHangAdjustments, stepHangAvoidance } from './modules/process/orchestrate.js';
+import { processLine } from './modules/process/process-line.js';
 import { applyComboSymbols } from './modules/process/preprocess/combo.js';
 import {
   relaxBuiltinLineBreak,
@@ -36,6 +37,7 @@ const Katsuji = {
   applyHangAvoidance,
   resetHangAdjustments,
   stepHangAvoidance,
+  processLine,
   applyLineSurplusPaddingByVisualWidth,
   applyComboSymbols,
   relaxBuiltinLineBreak,
