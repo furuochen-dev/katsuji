@@ -86,6 +86,15 @@ describe('标点属性', function () {
     assert.equal(isCannotLineStart('9'), false);
   });
 
+  it('半角逗号、句号不进后有空；小数点不插缝', function () {
+    eachChar(',.', function (ch) {
+      assert.equal(punctGapClass(ch), null, ch);
+      assert.equal(gapInsertSide(ch), null, ch);
+      assert.equal(isSpaceAfter(ch), false, ch);
+      assert.equal(isCannotLineStart(ch), false, ch);
+    });
+  });
+
   it('空白本身不算行首禁则', function () {
     eachChar(' \t\n\r\u00a0\u3000', function (ch) {
       assert.equal(isIllegalOnEdgeStart(ch), false, JSON.stringify(ch));

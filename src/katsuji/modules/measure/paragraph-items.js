@@ -148,21 +148,15 @@ export function gapElAdjacentAfterChar(items, charIndex) {
 export function lastAdjustableGapElInRange(items, startIncl, endIncl) {
   for (var j = endIncl; j >= startIncl && j < items.length; j--) {
     if (items[j].type !== 'gap') continue;
-    if (items[j].el.getAttribute('data-ts-combo-fixed') === '1') continue;
     return items[j].el;
   }
   return null;
 }
 
 export function collectGapsBetween(items, startIncl, endIncl, opts) {
-  if (typeof opts === 'boolean') opts = { skipComboFixed: opts };
   opts = opts || {};
-  var skipComboFixed = opts.skipComboFixed !== false;
   var end = endIncl;
-  if (opts.omitLineEnd && end >= startIncl && items[end].type === 'gap') {
-    var endGapEl = items[end].el;
-    if (!skipComboFixed || endGapEl.getAttribute('data-ts-combo-fixed') !== '1') end--;
-  }
+  if (opts.omitLineEnd && end >= startIncl && items[end].type === 'gap') end--;
   if (opts.omitLineStart && startIncl <= end && items[startIncl].type === 'gap') {
     startIncl += 1;
   }
@@ -178,7 +172,6 @@ export function collectGapsBetween(items, startIncl, endIncl, opts) {
   var out = [];
   for (var j = startIncl; j <= end && j < items.length; j++) {
     if (items[j].type !== 'gap') continue;
-    if (skipComboFixed && items[j].el.getAttribute('data-ts-combo-fixed') === '1') continue;
     if (items[j].el.getAttribute('data-ts-line-start-open-gap') === '1') continue;
     out.push(items[j].el);
   }
@@ -198,24 +191,29 @@ export function collectGapsBetween(items, startIncl, endIncl, opts) {
 
 /**
  * 第 5 步可调缝：压入含行尾 `后有空` 后面那条（抽上来后变接缝）；
- * 推出只动行内，行最末那条不动。
+ * 推出只动行内，行最末按推完留下来的最后一字（stayEndIdx）算。
+ * @param {number} [stayEndIdx] 推完后留在本行的最后一字；缺省等于 lastIdx
  */
-export function collectLineEndHangGaps(items, range, lastIdx) {
+export function collectLineEndHangGaps(items, range, lastIdx, stayEndIdx) {
   var interiorGaps = [];
   var trailingGaps = [];
+  var pushGaps = [];
   if (lastIdx >= 0 && range) {
     interiorGaps = collectGapsBetween(items, range.startIndex, lastIdx, {
-      skipComboFixed: true,
       omitLineStart: true,
     });
-    trailingGaps = collectGapsBetween(items, lastIdx + 1, range.endIndex, {
-      skipComboFixed: true,
+    trailingGaps = collectGapsBetween(items, lastIdx + 1, range.endIndex, {});
+  }
+  var pushEnd = stayEndIdx != null ? stayEndIdx : lastIdx;
+  if (pushEnd >= 0 && range) {
+    pushGaps = collectGapsBetween(items, range.startIndex, pushEnd, {
+      omitLineStart: true,
     });
   }
   return {
     interiorGaps: interiorGaps,
     trailingGaps: trailingGaps,
     pullGaps: interiorGaps.concat(trailingGaps),
-    pushGaps: interiorGaps,
+    pushGaps: pushGaps,
   };
 }

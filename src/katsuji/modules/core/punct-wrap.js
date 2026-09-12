@@ -37,25 +37,37 @@ export function unwrapNoneRuns(block) {
   unwrapNamedWraps(block, 'span[data-ts-none-run]');
 }
 
-/** 和后面第一个字绑在一起：半宽后仍超过上一行剩余，软折不会抽回去 */
-export function glueLineStartOpenToNext(charEl) {
-  if (!charEl || !charEl.parentNode) return null;
-  if (charEl.parentElement && charEl.parentElement.getAttribute('data-ts-line-start-nowrap') === '1') {
-    return charEl.parentElement;
-  }
-  var doc = charEl.ownerDocument || getDocument(charEl);
-  if (!doc) return null;
-  var wrap = doc.createElement('span');
-  wrap.setAttribute('data-ts-line-start-nowrap', '1');
+function applyLineStartNowrapStyle(wrap) {
+  if (!wrap) return wrap;
+  wrap.style.display = 'inline-block';
   wrap.style.whiteSpace = 'nowrap';
-  charEl.parentNode.insertBefore(wrap, charEl);
-  wrap.appendChild(charEl);
+  wrap.style.textIndent = '0';
+  wrap.style.verticalAlign = 'baseline';
+  return wrap;
+}
+
+function nowrapHasFollowingChar(wrap) {
+  if (!wrap) return false;
+  var kids = wrap.childNodes;
+  for (var i = 0; i < kids.length; i++) {
+    var k = kids[i];
+    if (k.nodeType === 1 && k.getAttribute && k.getAttribute('data-ts-line-start-open') === '1') continue;
+    if (k.nodeType === 1 && k.classList && k.classList.contains('ts-gap')) continue;
+    if (k.nodeType === 3 && !(k.nodeValue || '').replace(/\s/g, '')) continue;
+    if (k.nodeType === 3 && k.nodeValue) return true;
+    if (k.nodeType === 1) return true;
+  }
+  return false;
+}
+
+function appendFollowingCharToNowrap(wrap, doc) {
   var n = wrap.nextSibling;
   while (n && n.nodeType === 1 && n.classList && n.classList.contains('ts-gap')) {
     wrap.appendChild(n);
     n = wrap.nextSibling;
   }
-  if (n && n.nodeType === 3 && n.nodeValue) {
+  if (!n) return;
+  if (n.nodeType === 3 && n.nodeValue) {
     if (n.nodeValue.length === 1) {
       wrap.appendChild(n);
     } else {
@@ -63,7 +75,30 @@ export function glueLineStartOpenToNext(charEl) {
       wrap.appendChild(doc.createTextNode(n.nodeValue.charAt(0)));
       n.nodeValue = rest;
     }
+    return;
   }
+  if (n.nodeType === 1 && n.getAttribute && n.getAttribute('data-ts-line-start-nowrap') !== '1') {
+    wrap.appendChild(n);
+  }
+}
+
+/** 和后面第一个字绑进 inline-block：0 宽左挂盒不能单独被软折抽回上一行 */
+export function glueLineStartOpenToNext(charEl) {
+  if (!charEl || !charEl.parentNode) return null;
+  var doc = charEl.ownerDocument || getDocument(charEl);
+  if (!doc) return null;
+  var wrap = charEl.parentElement;
+  if (wrap && wrap.getAttribute('data-ts-line-start-nowrap') === '1') {
+    applyLineStartNowrapStyle(wrap);
+    if (!nowrapHasFollowingChar(wrap)) appendFollowingCharToNowrap(wrap, doc);
+    return wrap;
+  }
+  wrap = doc.createElement('span');
+  wrap.setAttribute('data-ts-line-start-nowrap', '1');
+  applyLineStartNowrapStyle(wrap);
+  charEl.parentNode.insertBefore(wrap, charEl);
+  wrap.appendChild(charEl);
+  appendFollowingCharToNowrap(wrap, doc);
   return wrap;
 }
 
@@ -99,11 +134,26 @@ function wrapCharInHalfSpan(item, className, dataAttr, extraStyle) {
   return span;
 }
 
+export function protrudeHalfPunctEnd(span) {
+  if (!span) return span;
+  span.style.marginRight = '-0.5em';
+  span.setAttribute('data-ts-hang-end', '1');
+  return span;
+}
+
+export function protrudeHalfPunctStart(span) {
+  if (!span) return span;
+  span.style.marginLeft = '-0.5em';
+  span.setAttribute('data-ts-hang-start', '1');
+  return span;
+}
+
 export function wrapCharAsHalfPunct(item) {
   return wrapCharInHalfSpan(item, 'ts-half-punct', 'data-ts-half-punct', {
     display: 'inline-block',
     width: '0.5em',
     textAlign: 'left',
+    textIndent: '0',
     verticalAlign: 'baseline',
     overflow: 'visible',
     boxSizing: 'content-box',
@@ -139,6 +189,7 @@ export function wrapCharAsLineStartOpen(item) {
   var span = wrapCharInHalfSpan(item, 'ts-half-punct', 'data-ts-line-start-open', {
     display: 'inline-block',
     width: '0.5em',
+    textIndent: '0',
     verticalAlign: 'baseline',
     overflow: 'visible',
     boxSizing: 'content-box',

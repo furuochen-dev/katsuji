@@ -2,13 +2,15 @@
 
 export var DEFAULT_GAP_BEFORE = '（【「『《〈〔［' + '\u201C\u2018' + '(';
 export var DEFAULT_GAP_NONE = '…～％‰℃°—';
+/** 打开右挂且 stops 时的 `可悬挂`。西文 `,` `.` 不进这版 */
+export var DEFAULT_HANGABLE_STOPS = '，。、';
 export var DEFAULT_GAP_AFTER =
   '，。、；：？！' +
   '）】｝〉》」』' +
   ')]}' +
   '\u201D\u2019' +
   '·' +
-  ',.;:!?';
+  ';:!?';
 
 /** 2. 左边有空：左括、左引、《 等 */
 export const BEFORE_OPEN_GAP = Object.create(null);

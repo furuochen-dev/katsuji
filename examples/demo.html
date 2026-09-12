@@ -171,10 +171,6 @@
         background: rgba(255, 230, 160, 0.22);
         border-radius: 2px;
       }
-      #content.marked.gap-preview span.ts-gap-combo {
-        outline-color: rgba(80, 120, 200, 0.5);
-        background: rgba(200, 220, 255, 0.25);
-      }
       #content.marked.gap-preview span.ts-half-punct {
         outline: 1px dashed rgba(180, 60, 120, 0.55);
         outline-offset: 1px;
@@ -227,37 +223,41 @@
         <input id="gap-preview" type="checkbox" checked />
         显示空隙预览框
       </label>
+      <label class="hang-debug">
+        <input id="hang-punct" type="checkbox" checked />
+        标点悬挂
+      </label>
+      <label class="hang-debug">
+        <input id="hang-left-indent" type="checkbox" checked />
+        缩进左挂
+      </label>
+      <label class="hang-debug">
+        <input id="hang-left" type="checkbox" />
+        全局左挂
+      </label>
+      <label class="hang-debug">
+        <input id="text-indent" type="checkbox" />
+        段首缩进 2em
+      </label>
       <button type="button" id="hang-reset">取消调整</button>
       <button type="button" id="hang-step">下一步</button>
       <output id="hang-step-status">自动排版</output>
     </div>
     <p class="note">
-      流水线见仓库根目录 <code>TYPESET.md</code>。「下一步」一次做完<strong>一行</strong>（第 3–5 步）。段首行跳过顶格，段末行跳过行尾处理。步进时左边红 <strong>▶刚</strong> 指刚做完的行，绿 <strong>▷下</strong> 指接下来要做的行。<code>applyHangAvoidance</code> 会把容器设成 <code>line-break: anywhere</code>，排完不改回来。
+      流水线见仓库根目录 <code>TYPESET.md</code>。「下一步」一次做完<strong>一行</strong>（第 3–5 步）。段首行也顶格。段末行跳过行尾处理。本页默认打开<strong>标点悬挂</strong>（右挂句读；沟左右各 0.5em；<strong>缩进左挂</strong>开、<strong>全局左挂</strong>关）。没有段首缩进时缩进左挂不推盒；勾上<strong>段首缩进 2em</strong>，段首「（《才推进缩进。全局左挂才把各行开括号推进左沟。关掉悬挂即回到 1.0。步进时左边红 <strong>▶刚</strong> 指刚做完的行，绿 <strong>▷下</strong> 指接下来要做的行。<code>applyHangAvoidance</code> 会把容器设成 <code>line-break: anywhere</code>，排完不改回来。
     </p>
 
     <div class="demo-stage">
       <div id="line-cursors" aria-hidden="true"></div>
       <article id="content">
       <p>
-        他说，《红楼梦》是一部奇书，而「脂砚斋」批语更让读者着迷：你怎么看？
+        「请相信我，亲爱的先生：在大英帝国中，再也没有比我更衷心支持与母国联合的人了。」但以造物主之名，我宁愿死去，也不会接受如今英国议会所提之条件——那些条件既苛且乱：增税、驻军、封锁港口、禁止西迁……无一不是把殖民地当作附属。有人劝他：「何必如此决绝？」他答：「我相信这正是美洲的共同心声。」又补了一句：「若连这句话也不敢说，还谈什么自由？」
       </p>
       <p>
-        会议议题有三项：「进说啊啊啊度汇报、风险排查、以及下阶段计划（含预算）请准时参加！：「请相啊信啊我，亲爱的先生：在大颠帝国中，再也没有比我更衷心是支持与母啊国联合的人了」。但以造物主之名，我宁愿死去」，也不会接受如今英国议会所提之条件」「我相信是这正是美洲的共同心声。
+        （第三次联席会，含预算）议题有三项：「进度汇报、风险排查、以及下阶段计划（含印刷、纸张、装订）」。请准时参加！会上有人提起《红楼梦》，说它是一部奇书，而「脂砚斋」批语更让读者着迷：你怎么看？另有人反问：「批语是作者自拟，还是他人捉刀？」争论未决，主席只得敲槌：「先记下来，会后再议。」散会时已近黄昏，走廊里还能听见：「《石头记》……脂批……真伪……」
       </p>
       <p>
-        会议议题有三项：进说啊啊啊度汇报、Hello风险排查、以及下阶段计划（含预算）请准时参加！请相啊信啊我，亲爱的先生：在Hello大颠帝国中，再也没有比我更衷心是支持与母啊国联合的人了」但以造物主之名，我宁愿死去」也不会接受如今英国议会所提之条件」我相信是这正是美洲的共同心声。
-      </p>
-      <p>
-        会议议题有三项：进说啊啊啊度汇报、风险排查、以及下阶段计划（含预算）请准时参加！请相啊信啊我，亲爱的先生：在大颠帝国中，再也没有比我更衷心是支持与母啊国联合的人了」但以造物主之名，我宁愿死去」也不会接受如今英国议会所提之条件」我相信是这正是美洲的共同心声。
-      </p>
-      <p>
-        Hello会议议题有三项：进说啊啊啊Hello Hello度汇报、风险排查、以Hello Hello下阶段计划（含预算）请准时参加！请相啊信Hello Hello啊我，亲爱的先生：在大颠帝国中，再也没有比我更衷心Hello Hello是支持与母啊国联合的人了」但以造物主之名，我宁愿死去」也不会接受如今英国议会所Hello Hello提之条件」我相信是这正是Hello Hello美洲的共同心声。
-      </p>
-      <p>
-        Hello会议议题有三项：进说啊啊啊Hello Hello度汇…报、风险排查、以Hello Hello下阶段…计划（含预算）请准时参加！请相啊信Hello Hello啊我，亲爱的先生：在大颠帝国中，再也没有比我更衷心Hello Hello是支持与母啊国联合的人了」但以造物主之名，我宁愿死去」也不会接受如今英国议会所Hello Hello提之条件」我相信是这正是Hello Hello美洲的共同心声。
-      </p>
-      <p>
-        水果摊上有苹果、香蕉、橘子，价格不贵，味道也好……
+        《汉书》有云：「天下熙熙，皆为利来；天下攘攘，皆为利往。」这话放在今天，也并不过时。书店里摆着《史记》《汉书》《后汉书》，旁边却是翻译小说、旅行手册、食谱……收银处贴着告示：「满百减十；学生证再九折。」有个孩子问：「妈妈，『利』是什么？」母亲想了想：「就是你想要、又不肯放手的东西。」孩子「哦」了一声，又问：「那『往』呢？」
       </p>
       </article>
     </div>
@@ -281,6 +281,10 @@
         var out = document.getElementById('content-width-val');
         var lwOut = document.getElementById('line-width-out');
         var gapPreview = document.getElementById('gap-preview');
+        var hangPunct = document.getElementById('hang-punct');
+        var hangLeftIndent = document.getElementById('hang-left-indent');
+        var hangLeft = document.getElementById('hang-left');
+        var textIndent = document.getElementById('text-indent');
         var hangReset = document.getElementById('hang-reset');
         var hangStep = document.getElementById('hang-step');
         var hangStepStatus = document.getElementById('hang-step-status');
@@ -292,6 +296,23 @@
 
         if (gapPreview && gapPreview.checked) el.classList.add('gap-preview');
         Katsuji.apply(el);
+
+        function syncHangLeftEnabled() {
+          var on = !!(hangPunct && hangPunct.checked);
+          if (hangLeftIndent) hangLeftIndent.disabled = !on;
+          if (hangLeft) hangLeft.disabled = !on;
+        }
+
+        function hangAvoidanceOpts() {
+          if (!hangPunct || !hangPunct.checked) return {};
+          return {
+            hangingPunctuation: {
+              hangLeftIndent: !!(hangLeftIndent && hangLeftIndent.checked),
+              hangLeft: !!(hangLeft && hangLeft.checked),
+              hangRight: 'stops',
+            },
+          };
+        }
 
         function hangKindLabel(kind) {
           if (kind === 'line') return '一行';
@@ -529,7 +550,6 @@
               var charPx = line.charWidthPx != null ? line.charWidthPx : 0;
               var gapPx = line.gapPmPx != null ? line.gapPmPx : 0;
               var halfPx = line.halfEmCharAdjustPx != null ? line.halfEmCharAdjustPx : 0;
-              var comboPx = line.comboFixedPmPx != null ? line.comboFixedPmPx : 0;
               var sumEm = pxToEm(charPx + gapPx - halfPx, blockEmPx);
               var lineEm =
                 line.lineVisualEm != null ? line.lineVisualEm : pxToEm(line.lineWidthPx, blockEmPx);
@@ -545,9 +565,7 @@
                 (line.charWidthPx != null ? fmtEm(charPx, blockEmPx) : '?') +
                 ' · <strong>空</strong> ' +
                 fmtEm(gapPx, blockEmPx) +
-                ' <span style="opacity:0.75">(combo ' +
-                fmtEm(comboPx, blockEmPx) +
-                ')</span> · <strong>半</strong><span' +
+                ' · <strong>半</strong><span' +
                 halfStyle +
                 '>' +
                 fmtEm(halfPx, blockEmPx) +
@@ -572,7 +590,7 @@
           lastStepHit = null;
           clearDebugHits();
           void el.offsetHeight;
-          Katsuji.applyHangAvoidance(el);
+          Katsuji.applyHangAvoidance(el, hangAvoidanceOpts());
           setStepStatus('自动排版');
           if (hangStep) hangStep.disabled = false;
           paintAfterLayout();
@@ -591,7 +609,7 @@
 
         function stepOnce() {
           stepMode = true;
-          var hit = Katsuji.stepHangAvoidance(el);
+          var hit = Katsuji.stepHangAvoidance(el, hangAvoidanceOpts());
           if (hit) {
             stepCount += 1;
             lastStepHit = hit;
@@ -617,6 +635,13 @@
           el.style.maxWidth = em + 'em';
           if (out) out.textContent = em + 'em';
         }
+        function applyTextIndent() {
+          var on = textIndent && textIndent.checked;
+          var nodes = el.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li');
+          for (var i = 0; i < nodes.length; i++) {
+            nodes[i].style.textIndent = on ? '2em' : '';
+          }
+        }
         if (slider) {
           applyWidthEm(slider.value);
           slider.addEventListener('input', function () {
@@ -628,6 +653,25 @@
           gapPreview.addEventListener('change', function () {
             syncGapPreviewClass();
             paintGapDemoMarks(el);
+          });
+        }
+        if (hangPunct) {
+          hangPunct.addEventListener('change', function () {
+            syncHangLeftEnabled();
+            bump();
+          });
+        }
+        if (hangLeftIndent) {
+          hangLeftIndent.addEventListener('change', bump);
+        }
+        if (hangLeft) {
+          hangLeft.addEventListener('change', bump);
+        }
+        if (textIndent) {
+          applyTextIndent();
+          textIndent.addEventListener('change', function () {
+            applyTextIndent();
+            bump();
           });
         }
         if (hangReset) {
@@ -642,6 +686,7 @@
         window.addEventListener('resize', function () {
           if (stepMode) paintLineCursors();
         });
+        syncHangLeftEnabled();
         bump();
         window.addEventListener('load', bump, { once: true });
         setTimeout(bump, 80);

@@ -12,48 +12,18 @@ export function gapPmPx(gapEl) {
   return pad + mar;
 }
 
-export function comboFixedGapPmPx(gapEl) {
-  if (!gapEl || gapEl.getAttribute('data-ts-combo-fixed') !== '1') return 0;
-  return gapPmPx(gapEl);
-}
-
-function isSignificantCharItem(item) {
-  if (!item || item.type !== 'char') return false;
-  var ch = item.ch;
-  return ch !== '\n' && ch !== '\r' && ch !== ' ' && ch !== '\t' && ch !== '\u00a0' && ch !== '\u3000';
-}
-
-/** combo 的 −0.5em 只在两侧字都在本行时缩短行宽；折到下一行的那半不算进本行 */
-function comboPairBothOnLine(items, gapIndex, startIndex, endIndex) {
-  var prev = -1;
-  var next = -1;
-  for (var i = gapIndex - 1; i >= 0; i--) {
-    if (!isSignificantCharItem(items[i])) continue;
-    prev = i;
-    break;
-  }
-  for (var k = gapIndex + 1; k < items.length; k++) {
-    if (!isSignificantCharItem(items[k])) continue;
-    next = k;
-    break;
-  }
-  return prev >= startIndex && next >= 0 && next <= endIndex;
+/** 连写已改成半角盒+删缝，不再有不可调 combo 缝 */
+export function comboFixedGapPmPx() {
+  return 0;
 }
 
 export function lineGapPmSumsPx(items, startIndex, endIndex) {
   var gapPm = 0;
-  var comboPm = 0;
   for (var j = startIndex; j <= endIndex && j < items.length; j++) {
     if (items[j].type !== 'gap') continue;
-    var el = items[j].el;
-    if (el.getAttribute('data-ts-combo-fixed') === '1' && !comboPairBothOnLine(items, j, startIndex, endIndex)) {
-      continue;
-    }
-    var px = gapPmPx(el);
-    gapPm += px;
-    if (el.getAttribute('data-ts-combo-fixed') === '1') comboPm += px;
+    gapPm += gapPmPx(items[j].el);
   }
-  return { gapPmPx: gapPm, comboFixedPmPx: comboPm };
+  return { gapPmPx: gapPm, comboFixedPmPx: 0 };
 }
 
 export function readGapPaddingEm(gapEl, emPx) {

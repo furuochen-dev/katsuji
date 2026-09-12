@@ -6,9 +6,11 @@ import {
   isParagraphLastLine,
 } from '../measure/paragraph-items.js';
 import { AFTER_CHARS } from '../text/punctuation-rules.js';
-import { wrapCharAsHalfPunct, charItemIsHalfPunctWrapped } from '../core/punct-wrap.js';
+import { wrapCharAsHalfPunct, charItemIsHalfPunctWrapped, protrudeHalfPunctEnd } from '../core/punct-wrap.js';
 import { applyMarginToGaps, decideHangOnGaps, punctHit } from './postprocess/edge-shared.js';
-import { lockComboGap } from './preprocess/combo.js';
+import { applyComboPairsOnPullRun } from './preprocess/combo.js';
+import { buildBlockLayout, measureLineVisualMetricsPx, blockLineMaxEm } from '../measure/line-width.js';
+import { addGapPaddingEm } from '../measure/gap-padding-margin.js';
 import {
   computeLineEndBases,
   collectPull51,
@@ -17,7 +19,9 @@ import {
   collectPush52,
   nextLineStartsForbidden,
   isLayoutWhitespace,
-  comboPairKind,
+  resolveHangingPunctuation,
+  isHangable,
+  GAP_SHARE_MIN_EM,
 } from './typeset-rules.js';
 
 function significantCharIndices(items, start, endExcl) {
@@ -41,6 +45,27 @@ function idxBeforeSuffix(idxs, suffixLen) {
   return idxs[idxs.length - suffixLen - 1];
 }
 
+/** 压入后合短于行宽：剩余摊进行内缝，顶到正文右缘（不是沟）。
+ * 悬挂时盒占内口 0，也靠这一摊才顶在行边进沟。
+ * 抽完下行可能变成段末，仍要摊；段末短行本身不会走到第 5 步。 */
+function fillLineLeftover(layout, L) {
+  var next = buildBlockLayout(layout.block);
+  if (!next || L < 0 || L >= next.heads.length) return { gaps: [], addEm: 0 };
+  var range = lineItemBounds(next.items, next.heads, L);
+  var lastIdx = lastSignificantCharIndexOnLine(next.items, range.startIndex, range.endIndex + 1);
+  var interior = collectLineEndHangGaps(next.items, range, lastIdx, lastIdx).pushGaps;
+  if (!interior.length) return { gaps: [], addEm: 0 };
+  var visualEm =
+    measureLineVisualMetricsPx(next.block, next.items, range.startIndex, range.endIndex).lineWidthPx /
+    next.emPx;
+  var leftover = blockLineMaxEm(next, L) - visualEm;
+  if (!(leftover >= GAP_SHARE_MIN_EM)) return { gaps: [], addEm: 0 };
+  var addEm = leftover / interior.length - 0.001;
+  if (!(addEm >= GAP_SHARE_MIN_EM)) return { gaps: [], addEm: 0 };
+  for (var g = 0; g < interior.length; g++) addGapPaddingEm(interior[g], addEm, next.emPx);
+  return { gaps: interior, addEm: addEm };
+}
+
 export function applyLineEndOnLine(layout, L, hangOpts) {
   if (!layout || isParagraphLastLine(layout, L)) return false;
   var items = layout.items;
@@ -58,11 +83,15 @@ export function applyLineEndOnLine(layout, L, hangOpts) {
   var pushCharsPlan = nextLineStartsForbidden(nextChars) ? collectPush51(thisChars) : collectPush52(thisChars);
   var newEndIdx = idxBeforeSuffix(thisIdxs, pushCharsPlan.length);
   var newEndAlreadyHalf = newEndIdx >= 0 && charItemIsHalfPunctWrapped(items[newEndIdx]);
-  var bases = computeLineEndBases(thisChars, nextChars, { newEndAlreadyHalf: newEndAlreadyHalf });
+  var hp = resolveHangingPunctuation(hangOpts && hangOpts.hangingPunctuation);
+  var bases = computeLineEndBases(thisChars, nextChars, {
+    newEndAlreadyHalf: newEndAlreadyHalf,
+    hangRight: hp.hangRight,
+  });
 
   var range = lineItemBounds(items, heads, L);
   var lastIdx = lastSignificantCharIndexOnLine(items, thisStart, nextStart);
-  var hangGaps = collectLineEndHangGaps(items, range, lastIdx);
+  var hangGaps = collectLineEndHangGaps(items, range, lastIdx, newEndIdx);
   var pullGaps = hangGaps.pullGaps;
   var pushGaps = hangGaps.pushGaps;
 
@@ -71,6 +100,7 @@ export function applyLineEndOnLine(layout, L, hangOpts) {
     pushBaseEm: bases.pushBaseEm,
     pullGapCount: pullGaps.length,
     pushGapCount: pushGaps.length,
+    lineIndex: L,
   });
 
   var wrapNewEnd =
@@ -82,7 +112,9 @@ export function applyLineEndOnLine(layout, L, hangOpts) {
   if (!margin && !wrapNewEnd) return false;
 
   var charEl = null;
+  var hangCh = null;
   if (wrapNewEnd) {
+    hangCh = items[newEndIdx].ch;
     charEl = wrapCharAsHalfPunct(items[newEndIdx]) || null;
   } else if (margin && !margin.usedPushFallback) {
     var pullChars = bases.branch === '5.1' ? collectPull51(nextChars) : collectPull52(nextChars);
@@ -93,9 +125,13 @@ export function applyLineEndOnLine(layout, L, hangOpts) {
         AFTER_CHARS[items[lastPull].ch] &&
         !charItemIsHalfPunctWrapped(items[lastPull])
       ) {
+        hangCh = items[lastPull].ch;
         charEl = wrapCharAsHalfPunct(items[lastPull]) || null;
       }
     }
+  }
+  if (charEl && hangCh && isHangable(hangCh, hp.hangRight)) {
+    protrudeHalfPunctEnd(charEl);
   }
 
   var appliedGaps = margin
@@ -103,11 +139,25 @@ export function applyLineEndOnLine(layout, L, hangOpts) {
       ? pushGaps
       : pullGaps
     : [];
+  if (margin && !margin.usedPushFallback) {
+    var pullIdxs = [];
+    var pullLen = (bases.pullChars || []).length;
+    for (var pi = 0; pi < pullLen; pi++) {
+      if (nextIdxs[pi] != null) pullIdxs.push(nextIdxs[pi]);
+    }
+    applyComboPairsOnPullRun(items, lastIdx, pullIdxs);
+    var still = [];
+    for (var gi = 0; gi < appliedGaps.length; gi++) {
+      if (appliedGaps[gi] && appliedGaps[gi].parentNode) still.push(appliedGaps[gi]);
+    }
+    appliedGaps = still;
+  }
   if (margin && margin.em && margin.em !== '0em') applyMarginToGaps(appliedGaps, margin.em);
-  if (margin && !margin.usedPushFallback && hangGaps.trailingGaps.length && lastIdx >= 0) {
-    var pullHead = bases.pullChars && bases.pullChars[0];
-    if (pullHead && comboPairKind(items[lastIdx].ch, pullHead)) {
-      lockComboGap(hangGaps.trailingGaps[0]);
+  var fill = { gaps: [], addEm: 0 };
+  if (margin && !margin.usedPushFallback) {
+    fill = fillLineLeftover(layout, L);
+    for (var f = 0; f < fill.gaps.length; f++) {
+      if (appliedGaps.indexOf(fill.gaps[f]) < 0) appliedGaps.push(fill.gaps[f]);
     }
   }
   return punctHit('line-end', L, appliedGaps, {
@@ -116,6 +166,7 @@ export function applyLineEndOnLine(layout, L, hangOpts) {
     usedPushFallback: !!(margin && margin.usedPushFallback) || !margin,
     pullBaseEm: bases.pullBaseEm,
     pushBaseEm: bases.pushBaseEm,
+    fillEm: fill.addEm || null,
     charEl: charEl,
   });
 }

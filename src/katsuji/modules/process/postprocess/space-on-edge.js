@@ -1,20 +1,20 @@
-/** 第 3 步：行首 `前有空` 顶格。段首行不做。 */
+/** 第 3 步：行首 `前有空` 顶格。段首行也做；左挂两档只决定要不要再推盒。 */
 import {
   firstSignificantCharIndexOnLine,
   gapElAdjacentBeforeChar,
-  isParagraphFirstLine,
 } from '../../measure/paragraph-items.js';
 import { isSpaceOnEdgeStart } from '../../text/punctuation-rules.js';
 import {
   wrapCharAsLineStartOpen,
   charItemIsHalfPunctWrapped,
   glueLineStartOpenToNext,
+  protrudeHalfPunctStart,
 } from '../../core/punct-wrap.js';
+import { shouldProtrudeLineStartOpen } from '../typeset-rules.js';
 import { punctHit } from './edge-shared.js';
 
-/** 行首是 `前有空`：去掉前空，0.5em 盒只露右边的墨。段首行不做。 */
-export function trySpaceOnEdgeStart(layout, L) {
-  if (isParagraphFirstLine(L)) return false;
+/** 行首是 `前有空`：去掉前空，0.5em 盒只露右边的墨。 */
+export function trySpaceOnEdgeStart(layout, L, hp) {
   var items = layout.items;
   var heads = layout.heads;
   var lineStart = heads[L];
@@ -32,7 +32,9 @@ export function trySpaceOnEdgeStart(layout, L) {
   }
   var charEl = wrapCharAsLineStartOpen(items[sig]) || null;
   if (!charEl && !openGap) return false;
-  if (L >= 1 && charEl) glueLineStartOpenToNext(charEl);
+  var protrude = shouldProtrudeLineStartOpen(L, layout.indentEm || 0, hp);
+  if ((L >= 1 || protrude) && charEl) glueLineStartOpenToNext(charEl);
+  if (charEl && protrude) protrudeHalfPunctStart(charEl);
   return punctHit('space-start', L, openGap ? [openGap] : [], {
     ch: items[sig].ch,
     charEl: charEl,

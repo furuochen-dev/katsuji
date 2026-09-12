@@ -4,7 +4,7 @@ import { hangConfig } from '../core/config.js';
 import { trySpaceOnEdgeStart } from './postprocess/space-on-edge.js';
 import { glueAdjacentNonePunct, applyComboSymbolsOnLine } from './preprocess/combo.js';
 import { applyLineEndOnLine } from './line-end.js';
-import { lineStepPlan } from './typeset-rules.js';
+import { lineStepPlan, resolveHangingPunctuation } from './typeset-rules.js';
 import { punctHit } from './postprocess/edge-shared.js';
 
 function collectGapsFromParts(parts) {
@@ -45,14 +45,15 @@ function lineHit(L, parts, charEl) {
 
 export function processLine(block, L, hangOpts) {
   hangOpts = hangOpts || hangConfig;
+  var hp = resolveHangingPunctuation(hangOpts.hangingPunctuation);
   var layout = buildBlockLayout(block);
   if (!layout || L < 0 || L >= layout.heads.length) return null;
-  var plan = lineStepPlan(L, layout.heads.length);
+  var plan = lineStepPlan(L, layout.heads.length, hp);
   var parts = [];
   var charEl = null;
 
   if (plan.step3) {
-    var s3 = trySpaceOnEdgeStart(layout, L);
+    var s3 = trySpaceOnEdgeStart(layout, L, hp);
     if (s3) {
       parts.push(s3);
       if (s3.charEl) charEl = s3.charEl;
@@ -63,12 +64,13 @@ export function processLine(block, L, hangOpts) {
 
   if (plan.step4) {
     glueAdjacentNonePunct(block);
-    layout = buildBlockLayout(block) || layout;
-    if (layout && L < layout.heads.length) {
+    var comboPass = 0;
+    while (comboPass++ < 8) {
+      layout = buildBlockLayout(block) || layout;
+      if (!layout || L >= layout.heads.length) break;
       var comboGaps = applyComboSymbolsOnLine(layout, L);
-      if (comboGaps.length) {
-        parts.push(punctHit('combo', L, comboGaps, { count: comboGaps.length }));
-      }
+      if (!comboGaps.length) break;
+      parts.push(punctHit('combo', L, comboGaps, { count: comboGaps.length }));
     }
   }
 

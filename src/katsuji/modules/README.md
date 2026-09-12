@@ -12,9 +12,10 @@ core/         config、dom-util、punct-wrap、punct-config
 text/         punctuation-rules
 measure/      段落结构、gap 量宽、行宽
 process/
-  typeset-rules.js   第 4–5 步纯规则
+  typeset-rules.js   第 4–5 步纯规则、可悬挂、行宽
   process-line.js    一行 3→4→5
   orchestrate.js     整篇 / 步进
+  hanging-pad.js     2′ 悬挂沟
   line-end.js        第 5 步
   preprocess/        line-break、segmenter、combo
   postprocess/       space-on-edge（第 3 步）、surplus（可选填满）

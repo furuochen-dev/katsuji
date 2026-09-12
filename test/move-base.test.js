@@ -39,11 +39,14 @@ describe('5.1 收集（下行打头是不能在行头）', function () {
 });
 
 describe('5.2 收集（下行不是不能在行头）', function () {
-  it('压入：行头连续前有空 + 再一个不是前有空的字', function () {
+  it('压入：行头连续前有空 + 再一个不是前有空的字 + 其后连续不能在行头', function () {
     assert.deepEqual(collectPull52(['汉', '字']), ['汉']);
     assert.deepEqual(collectPull52(['（', '汉']), ['（', '汉']);
     assert.deepEqual(collectPull52(['（', '《', '汉']), ['（', '《', '汉']);
     assert.deepEqual(collectPull52(['（', '（']), ['（', '（']);
+    assert.deepEqual(collectPull52(['了', '」', '但']), ['了', '」']);
+    assert.deepEqual(collectPull52(['了', '」', '。', '但']), ['了', '」', '。']);
+    assert.deepEqual(collectPull52(['（', '了', '」', '但']), ['（', '了', '」']);
   });
 
   it('推出：行尾连续前有空，可以是 0 个', function () {
@@ -124,6 +127,19 @@ describe('5.2 基数（撑行）', function () {
     assert.equal(b.branch, '5.2');
     assert.deepEqual(b.pullChars, ['汉']);
     assert.equal(b.pullBaseEm, 1);
+  });
+
+  it('抽 了」：汉字后面连续不能在行头也抽上来，」收半角', function () {
+    var b = computeLineEndBases(['人'], ['了', '」', '但']);
+    assert.equal(b.branch, '5.2');
+    assert.deepEqual(b.pullChars, ['了', '」']);
+    assert.equal(b.pullBaseEm, 1.5);
+    var short = hangAmountsEm(10, 10.65, b.pullBaseEm, b.pushBaseEm);
+    assert.ok(short.pullAmountEm > 0.5);
+    assert.equal(decideHangStrategy(short.pullAmountEm, 1, short.pushAmountEm, 0), 'none');
+    var enough = hangAmountsEm(10, 11, b.pullBaseEm, b.pushBaseEm);
+    assert.ok(enough.pullAmountEm <= 0.5);
+    assert.equal(decideHangStrategy(enough.pullAmountEm, 1, enough.pushAmountEm, 0), 'pull');
   });
 
   it('抽 （汉：无内部连写（前有空+汉不成对）', function () {

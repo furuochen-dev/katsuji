@@ -36,6 +36,38 @@ function lineTexts(page) {
   });
 }
 
+function hangGutter(page) {
+  return page.evaluate(() => {
+    var p = document.querySelector('#host p');
+    var end = p && p.querySelector('[data-ts-hang-end]');
+    if (!end) return { hung: false, overflow: 0, leftoverEm: 0, ch: '', fs: 16 };
+    var fs = parseFloat(getComputedStyle(p).fontSize) || 16;
+    var pr = parseFloat(getComputedStyle(p).paddingRight) || 0;
+    var contentRight = p.getBoundingClientRect().right - pr;
+    var r = end.getBoundingClientRect();
+    var lines = window.Katsuji.measureBlockVisualLines(p).lines;
+    var layout = window.Katsuji.buildBlockLayout(p);
+    var L = -1;
+    for (var i = 0; i < lines.length; i++) {
+      if (/[，。、]$/.test(lines[i].text || '')) {
+        L = i;
+        break;
+      }
+    }
+    if (L < 0) L = 0;
+    var visual = lines[L] ? lines[L].lineVisualEm : 0;
+    var maxEm = layout ? window.Katsuji.blockLineMaxEm(layout, L) : 0;
+    return {
+      hung: true,
+      ch: end.textContent,
+      overflow: r.right - contentRight,
+      leftoverEm: maxEm - visual,
+      mr: end.style.marginRight,
+      fs: fs,
+    };
+  });
+}
+
 test.describe('第 1 步 插缝', function () {
   test('后有空后面、前有空前面各插一条缝；两侧无空不插', async function ({ page }) {
     await openHost(page, 20);
@@ -80,7 +112,7 @@ test.describe('第 2 步 断行', function () {
 });
 
 test.describe('第 3 步 行首开括号顶格', function () {
-  test('段首行是前有空：不顶格', async function ({ page }) {
+  test('段首行是前有空：顶格，默认不推盒', async function ({ page }) {
     await openHost(page, 16);
     await setParagraph(page, '（段首开括号后面还有很多汉字用来撑开这一行的宽度避免过短');
     await page.evaluate(() => {
@@ -90,13 +122,81 @@ test.describe('第 3 步 行首开括号顶格', function () {
     });
     var flagged = await page.evaluate(() => {
       var p = document.querySelector('#host p');
+      var open = p.querySelector('[data-ts-line-start-open]');
       return {
         open: p.querySelectorAll('[data-ts-line-start-open]').length,
         first: (p.textContent || '').charAt(0),
+        hung: !!(open && open.getAttribute('data-ts-hang-start') === '1'),
+        locked: !!p.querySelector('[data-ts-line-start-open-gap]'),
       };
     });
     expect(flagged.first).toBe('（');
-    expect(flagged.open).toBe(0);
+    expect(flagged.open).toBe(1);
+    expect(flagged.locked).toBe(true);
+    expect(flagged.hung).toBe(false);
+  });
+
+  test('全局左挂：无缩进段首也推盒', async function ({ page }) {
+    await openHost(page, 16);
+    await setParagraph(page, '（段首开括号后面还有很多汉字用来撑开这一行的宽度避免过短');
+    await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangLeft: true, hangRight: 'stops' },
+      });
+    });
+    var flagged = await page.evaluate(() => {
+      var p = document.querySelector('#host p');
+      var open = p.querySelector('[data-ts-line-start-open]');
+      return {
+        open: !!open,
+        hung: !!(open && open.getAttribute('data-ts-hang-start') === '1'),
+      };
+    });
+    expect(flagged.open).toBe(true);
+    expect(flagged.hung).toBe(true);
+  });
+
+  test('打开悬挂默认：无缩进不推盒；有 2em 缩进才缩进左挂', async function ({ page }) {
+    await openHost(page, 16);
+    await setParagraph(page, '（段首开括号后面还有很多汉字用来撑开这一行的宽度避免过短');
+    await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, { hangingPunctuation: true });
+    });
+    var noIndent = await page.evaluate(() => {
+      var open = document.querySelector('#host p [data-ts-line-start-open]');
+      return !!(open && open.getAttribute('data-ts-hang-start') === '1');
+    });
+    expect(noIndent).toBe(false);
+
+    await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      p.style.textIndent = '2em';
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, { hangingPunctuation: true });
+    });
+    var withIndent = await page.evaluate(() => {
+      var open = document.querySelector('#host p [data-ts-line-start-open]');
+      return !!(open && open.getAttribute('data-ts-hang-start') === '1');
+    });
+    expect(withIndent).toBe(true);
+
+    await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangLeftIndent: false, hangRight: 'stops' },
+      });
+    });
+    var indentOff = await page.evaluate(() => {
+      var open = document.querySelector('#host p [data-ts-line-start-open]');
+      return !!(open && open.getAttribute('data-ts-hang-start') === '1');
+    });
+    expect(indentOff).toBe(false);
   });
 
   test('非段首行行首是前有空：顶格并锁缝', async function ({ page }) {
@@ -131,10 +231,129 @@ test.describe('第 3 步 行首开括号顶格', function () {
       expect(after.locked).toBe(true);
     }
   });
+
+  test('hangLeft：先和后一字绑进 inline-block 再推盒，不和前一字重合', async function ({ page }) {
+    await openHost(page, 16);
+    await setParagraph(
+      page,
+      '（段首开括号后面还有很多汉字用来撑开这一行的宽度避免过短哈哈哈哈「后面还有汉字汉字汉字',
+    );
+    var info = await page.evaluate(() => {
+      function charRect(item) {
+        if (!item || item.type !== 'char' || !item.node) return null;
+        var range = document.createRange();
+        range.setStart(item.node, item.offset);
+        range.setEnd(item.node, item.offset + 1);
+        return range.getBoundingClientRect();
+      }
+      var host = document.getElementById('host');
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangLeft: true, hangRight: 'stops' },
+      });
+      var p = host.querySelector('p');
+      var items = window.Katsuji.flattenParagraph(p);
+      var opens = p.querySelectorAll('[data-ts-line-start-open][data-ts-hang-start]');
+      var rows = [];
+      for (var o = 0; o < opens.length; o++) {
+        var open = opens[o];
+        var wrap = open.parentElement;
+        var ch = (open.textContent || '').charAt(0);
+        var openIdx = -1;
+        for (var i = 0; i < items.length; i++) {
+          if (items[i].type === 'char' && items[i].ch === ch) {
+            var el = items[i].node && items[i].node.parentElement;
+            while (el && el !== open) el = el.parentElement;
+            if (el === open) {
+              openIdx = i;
+              break;
+            }
+          }
+        }
+        var prev = null;
+        for (var j = openIdx - 1; j >= 0; j--) {
+          if (items[j].type === 'char') {
+            prev = items[j];
+            break;
+          }
+        }
+        var openR = open.getBoundingClientRect();
+        var prevR = charRect(prev);
+        var overlapPrev = !!(openR && prevR &&
+          openR.left < prevR.right - 1 &&
+          openR.right > prevR.left + 1 &&
+          openR.top < prevR.bottom - 1 &&
+          openR.bottom > prevR.top + 1);
+        var hasFollow = false;
+        if (wrap) {
+          var kids = wrap.childNodes;
+          for (var k = 0; k < kids.length; k++) {
+            var node = kids[k];
+            if (node === open) continue;
+            if (node.nodeType === 1 && node.classList && node.classList.contains('ts-gap')) continue;
+            if (node.nodeType === 3 && !(node.nodeValue || '').replace(/\s/g, '')) continue;
+            hasFollow = true;
+          }
+        }
+        rows.push({
+          ch: ch,
+          atomic: !!(wrap && wrap.getAttribute('data-ts-line-start-nowrap') === '1'),
+          display: wrap ? wrap.style.display || getComputedStyle(wrap).display : '',
+          hasFollow: hasFollow,
+          overlapPrev: overlapPrev,
+        });
+      }
+      return { count: opens.length, rows: rows };
+    });
+    expect(info.count).toBeGreaterThan(0);
+    for (var r = 0; r < info.rows.length; r++) {
+      expect(info.rows[r].atomic).toBe(true);
+      expect(info.rows[r].display).toBe('inline-block');
+      expect(info.rows[r].hasFollow).toBe(true);
+      expect(info.rows[r].overlapPrev).toBe(false);
+    }
+  });
 });
 
 test.describe('第 4 步 连写', function () {
-  test('。」只锁中间那一条缝为 −0.5em', async function ({ page }) {
+  test('锁完折上来的「《再锁，抽完《石不留半格', async function ({ page }) {
+    await openHost(page, 31);
+    await setParagraph(
+      page,
+      '槌：「先记下来，会后再议。」散会时已近黄昏，走廊里还能听见：「《石头记》后面还有很多汉字用来避免这是段末行后面还有汉字汉字',
+    );
+    await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host);
+    });
+    var info = await page.evaluate(() => {
+      var p = document.querySelector('#host p');
+      var layout = window.Katsuji.buildBlockLayout(p);
+      var m = window.Katsuji.measureBlockVisualLines(p);
+      for (var i = 0; i < m.lines.length; i++) {
+        var t = (m.lines[i].text || '').replace(/\s+/g, '');
+        if (t.indexOf('「《石') < 0) continue;
+        var maxEm = window.Katsuji.blockLineMaxEm(layout, i);
+        var open = p.querySelector('[data-ts-line-start-open]');
+        var glyph = p.querySelector('[data-ts-line-start-open-glyph]');
+        return {
+          text: t.slice(-8),
+          leftover: maxEm - m.lines[i].lineVisualEm,
+          openCh: open ? open.textContent : '',
+          glyphMl: glyph ? glyph.style.marginLeft : '',
+        };
+      }
+      return { text: (m.lines[0] && m.lines[0].text) || '', leftover: null };
+    });
+    expect(info.text).toContain('「《石');
+    expect(info.leftover).not.toBeNull();
+    expect(Math.abs(info.leftover)).toBeLessThan(0.12);
+    expect(info.openCh).toContain('「');
+    expect(info.glyphMl).toBe('-0.5em');
+  });
+
+  test('。」前面的。收半角盒、中间缝删掉', async function ({ page }) {
     await openHost(page, 20);
     await setParagraph(page, '文本。」文本');
     await page.evaluate(() => {
@@ -145,26 +364,31 @@ test.describe('第 4 步 连写', function () {
     var combo = await page.evaluate(() => {
       var p = document.querySelector('#host p');
       var items = window.Katsuji.flattenParagraph(p);
-      var between = [];
+      var betweenGaps = 0;
+      var periodHalf = false;
       var seen = false;
       for (var i = 0; i < items.length; i++) {
-        if (items[i].type === 'char' && items[i].ch === '。') seen = true;
-        if (seen && items[i].type === 'gap') {
-          between.push({
-            combo: items[i].el.getAttribute('data-ts-combo-fixed') === '1',
-            ml: items[i].el.style.marginLeft,
-          });
+        if (items[i].type === 'char' && items[i].ch === '。') {
+          seen = true;
+          var el = items[i].node && items[i].node.parentElement;
+          while (el) {
+            if (el.classList && el.classList.contains('ts-half-punct')) {
+              periodHalf = true;
+              break;
+            }
+            el = el.parentElement;
+          }
         }
+        if (seen && items[i].type === 'gap') betweenGaps += 1;
         if (seen && items[i].type === 'char' && items[i].ch === '」') break;
       }
-      return between;
+      return { betweenGaps: betweenGaps, periodHalf: periodHalf };
     });
-    expect(combo.length).toBe(1);
-    expect(combo[0].combo).toBe(true);
-    expect(combo[0].ml).toBe('-0.5em');
+    expect(combo.betweenGaps).toBe(0);
+    expect(combo.periodHalf).toBe(true);
   });
 
-  test('）（两条缝只锁前一条', async function ({ page }) {
+  test('）（前面的）收半角盒、只删前一条缝', async function ({ page }) {
     await openHost(page, 20);
     await setParagraph(page, '文本）（文本');
     await page.evaluate(() => {
@@ -176,25 +400,32 @@ test.describe('第 4 步 连写', function () {
       var p = document.querySelector('#host p');
       var items = window.Katsuji.flattenParagraph(p);
       var out = [];
+      var closeHalf = false;
       var take = false;
       for (var i = 0; i < items.length; i++) {
-        if (items[i].type === 'char' && items[i].ch === '）') take = true;
+        if (items[i].type === 'char' && items[i].ch === '）') {
+          take = true;
+          var el = items[i].node && items[i].node.parentElement;
+          while (el) {
+            if (el.classList && el.classList.contains('ts-half-punct')) {
+              closeHalf = true;
+              break;
+            }
+            el = el.parentElement;
+          }
+        }
         if (take && items[i].type === 'gap') {
           out.push({
-            combo: items[i].el.getAttribute('data-ts-combo-fixed') === '1',
             open: items[i].el.getAttribute('data-ts-open-gap') === '1',
-            ml: items[i].el.style.marginLeft,
           });
         }
         if (take && items[i].type === 'char' && items[i].ch === '（') break;
       }
-      return out;
+      return { gaps: out, closeHalf: closeHalf };
     });
-    expect(gaps.length).toBe(2);
-    expect(gaps[0].combo).toBe(true);
-    expect(gaps[0].ml).toBe('-0.5em');
-    expect(gaps[1].combo).toBe(false);
-    expect(gaps[1].open).toBe(true);
+    expect(gaps.closeHalf).toBe(true);
+    expect(gaps.gaps.length).toBe(1);
+    expect(gaps.gaps[0].open).toBe(true);
   });
 
   test('跨行的 」和「 不锁中间缝', async function ({ page }) {
@@ -226,7 +457,7 @@ test.describe('第 4 步 连写', function () {
       var lines = window.Katsuji.measureBlockVisualLines(p).lines;
       var texts = lines.map(function (l) { return l.text; });
       if (!(texts.some(function (t) { return /」$/.test(t); }) && texts.some(function (t) { return /^「/.test(t); }))) {
-        return { stillSplit: false, combo: false };
+        return { stillSplit: false, gapKept: false };
       }
       var afterClose = false;
       for (var i = 0; i < items.length; i++) {
@@ -234,14 +465,14 @@ test.describe('第 4 步 连写', function () {
         if (afterClose && items[i].type === 'gap') {
           return {
             stillSplit: true,
-            combo: items[i].el.getAttribute('data-ts-combo-fixed') === '1',
+            gapKept: true,
           };
         }
         if (afterClose && items[i].type === 'char' && items[i].ch === '「') break;
       }
-      return { stillSplit: true, combo: false };
+      return { stillSplit: true, gapKept: false };
     });
-    if (lockedCross.stillSplit) expect(lockedCross.combo).toBe(false);
+    if (lockedCross.stillSplit) expect(lockedCross.gapKept).toBe(true);
   });
 });
 
@@ -262,7 +493,7 @@ test.describe('第 5 步 行尾 / 段末', function () {
       var pads = [];
       for (var i = range.startIndex; i <= range.endIndex; i++) {
         if (layout.items[i].type !== 'gap') continue;
-        if (layout.items[i].el.getAttribute('data-ts-combo-fixed') === '1') continue;
+        if (layout.items[i].el.getAttribute('data-ts-line-start-open-gap') === '1') continue;
         pads.push(parseFloat(layout.items[i].el.style.paddingLeft) || 0);
       }
       var line = window.Katsuji.measureBlockVisualLines(p).lines[lastL];
@@ -274,7 +505,7 @@ test.describe('第 5 步 行尾 / 段末', function () {
     });
   });
 
-  test('满行字」下一行。：压入量 0 仍抽上来并包半角、锁接缝', async function ({ page }) {
+  test('满行字」下一行。：压入量 0 仍抽上来并包半角、收接缝', async function ({ page }) {
     await openHost(page, 17);
     await setParagraph(page, '字字字字字字字字字字字字字字字字」。下一行还有字字字字字字字字');
     var before = await page.evaluate(() => {
@@ -301,12 +532,21 @@ test.describe('第 5 步 行尾 / 段末', function () {
       var layout = window.Katsuji.buildBlockLayout(p);
       var range = window.Katsuji.lineItemBounds(layout.items, layout.heads, 0);
       var closeGap = null;
+      var closeHalf = false;
       var periodWrapped = false;
       for (var i = range.startIndex; i <= range.endIndex; i++) {
         if (layout.items[i].type !== 'char') continue;
         if (layout.items[i].ch === '」') {
           if (i + 1 <= range.endIndex && layout.items[i + 1].type === 'gap') {
             closeGap = layout.items[i + 1].el;
+          }
+          var closeEl = layout.items[i].node && layout.items[i].node.parentElement;
+          while (closeEl) {
+            if (closeEl.classList && closeEl.classList.contains('ts-half-punct')) {
+              closeHalf = true;
+              break;
+            }
+            closeEl = closeEl.parentElement;
           }
         }
         if (layout.items[i].ch === '。') {
@@ -333,8 +573,8 @@ test.describe('第 5 步 行尾 / 段末', function () {
         em: lineEnd && lineEnd.em,
         pullBaseEm: lineEnd && lineEnd.pullBaseEm,
         periodWrapped: periodWrapped,
-        closeCombo: closeGap ? closeGap.getAttribute('data-ts-combo-fixed') : null,
-        closeMl: closeGap ? closeGap.style.marginLeft : '',
+        closeHalf: closeHalf,
+        closeGap: !!closeGap,
       };
     });
     expect(after.branch).toBe('5.1');
@@ -342,8 +582,8 @@ test.describe('第 5 步 行尾 / 段末', function () {
     expect(after.pullBaseEm).toBe(0);
     expect(after.first).toMatch(/」。/);
     expect(after.periodWrapped).toBe(true);
-    expect(after.closeCombo).toBe('1');
-    expect(after.closeMl).toBe('-0.5em');
+    expect(after.closeHalf).toBe(true);
+    expect(after.closeGap).toBe(false);
   });
 
   test('撑行：本行只有行尾后有空那条缝时，压入仍抽这一条', async function ({ page }) {
@@ -399,6 +639,129 @@ test.describe('第 5 步 行尾 / 段末', function () {
     expect(after.commaMl).toMatch(/^-/);
   });
 
+  test('撑行抽 了」：后面的」一并抽上来，不晾成新行头', async function ({ page }) {
+    await openHost(page, 12);
+    await setParagraph(page, '一二三四五六七八九十人了」但以造物主之名后面还有很多汉字汉字汉字汉字汉字');
+    var before = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.apply(host);
+      window.Katsuji.relaxBuiltinLineBreak(host);
+      void host.offsetHeight;
+      var p = document.querySelector('#host p');
+      var found = null;
+      for (var em = 8; em <= 16; em += 0.1) {
+        host.style.width = em + 'em';
+        void host.offsetHeight;
+        var lines = window.Katsuji.measureBlockVisualLines(p).lines;
+        if (lines.length < 2) continue;
+        if (!/人$/.test(lines[0].text) || !/^了」/.test(lines[1].text)) continue;
+        host.style.width = lines[0].lineVisualEm + 0.65 + 'em';
+        void host.offsetHeight;
+        var again = window.Katsuji.measureBlockVisualLines(p).lines;
+        if (again.length < 2 || !/人$/.test(again[0].text) || !/^了」/.test(again[1].text)) {
+          continue;
+        }
+        found = { first: again[0].text, second: again[1].text };
+        break;
+      }
+      return found;
+    });
+    expect(before).toBeTruthy();
+    expect(before.first).toMatch(/人$/);
+    expect(before.second).toMatch(/^了」/);
+
+    var after = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = document.querySelector('#host p');
+      window.Katsuji.resetHangAdjustments(host);
+      window.Katsuji.processLine(p, 0);
+      void host.offsetHeight;
+      var lines = window.Katsuji.measureBlockVisualLines(p).lines;
+      return {
+        first: lines[0] && lines[0].text,
+        second: lines[1] && lines[1].text,
+      };
+    });
+    expect(after.second).not.toMatch(/^」/);
+    if (/了$/.test(after.first)) {
+      expect(after.first).toMatch(/了」$/);
+    }
+  });
+
+  test('撑行推出前有空：括号前空不加推出量', async function ({ page }) {
+    await openHost(page, 12);
+    await setParagraph(page, '一二三，四五六七八（九十一二三四五六七八九十甲乙丙丁戊己庚');
+    var before = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.apply(host);
+      window.Katsuji.relaxBuiltinLineBreak(host);
+      void host.offsetHeight;
+      var p = document.querySelector('#host p');
+      var found = null;
+      for (var em = 7; em <= 14; em += 0.1) {
+        host.style.width = em + 'em';
+        void host.offsetHeight;
+        var lines = window.Katsuji.measureBlockVisualLines(p).lines;
+        if (lines.length < 2) continue;
+        if (/（$/.test(lines[0].text)) {
+          found = { widthEm: em, first: lines[0].text, visual: lines[0].lineVisualEm };
+          break;
+        }
+      }
+      if (!found) return null;
+      host.style.width = found.visual + 0.15 + 'em';
+      void host.offsetHeight;
+      var again = window.Katsuji.measureBlockVisualLines(p).lines[0];
+      return { first: again.text, visual: again.lineVisualEm };
+    });
+    expect(before).toBeTruthy();
+    expect(before.first).toMatch(/（$/);
+
+    var after = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = document.querySelector('#host p');
+      window.Katsuji.resetHangAdjustments(host);
+      var hit = window.Katsuji.processLine(p, 0);
+      var layout = window.Katsuji.buildBlockLayout(p);
+      var range = window.Katsuji.lineItemBounds(layout.items, layout.heads, 0);
+      var commaGap = null;
+      var openGap = null;
+      for (var i = range.startIndex; i <= range.endIndex; i++) {
+        if (layout.items[i].type !== 'char') continue;
+        if (layout.items[i].ch === '，' && i + 1 <= range.endIndex && layout.items[i + 1].type === 'gap') {
+          commaGap = layout.items[i + 1].el;
+        }
+        if (layout.items[i].ch === '（' && i > 0 && layout.items[i - 1].type === 'gap') {
+          openGap = layout.items[i - 1].el;
+        }
+      }
+      var lineEnd = null;
+      if (hit && hit.parts) {
+        for (var n = 0; n < hit.parts.length; n++) {
+          if (hit.parts[n].kind === 'line-end') lineEnd = hit.parts[n];
+        }
+      }
+      void host.offsetHeight;
+      var first = window.Katsuji.measureBlockVisualLines(p).lines[0];
+      return {
+        branch: lineEnd && lineEnd.branch,
+        usedPushFallback: lineEnd && lineEnd.usedPushFallback,
+        gapCount: lineEnd && lineEnd.gaps ? lineEnd.gaps.length : 0,
+        em: lineEnd && lineEnd.em,
+        commaMl: commaGap ? commaGap.style.marginLeft : '',
+        openMl: openGap ? openGap.style.marginLeft : '',
+        first: first.text,
+      };
+    });
+    expect(after.branch).toBe('5.2');
+    expect(after.usedPushFallback).toBe(true);
+    expect(after.gapCount).toBe(1);
+    expect(after.em).toMatch(/^\d/);
+    expect(after.commaMl).toMatch(/^\d/);
+    expect(after.openMl).toBe('');
+    expect(after.first).not.toMatch(/（$/);
+  });
+
   test('非段末行尾是后有空、撑行时收成半角盒', async function ({ page }) {
     await openHost(page, 8);
     await setParagraph(page, '一二三四五六七。八九十一二三四五六七八九十');
@@ -452,5 +815,361 @@ test.describe('步进', function () {
     });
     expect(kinds.length).toBeGreaterThan(0);
     expect(kinds.every(function (k) { return k === 'line'; })).toBe(true);
+  });
+});
+
+test.describe('标点悬挂', function () {
+  test('无参不开悬挂：右边距不增，句读不进沟', async function ({ page }) {
+    await openHost(page, 8);
+    await setParagraph(page, '一二三四五六七。八九十一二三四五六七八九十abcdefghij');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      var before = getComputedStyle(p).paddingRight;
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host);
+      var after = getComputedStyle(p).paddingRight;
+      var hung = p.querySelector('[data-ts-hang-end]');
+      return { before: before, after: after, hung: !!hung };
+    });
+    expect(info.after).toBe(info.before);
+    expect(info.hung).toBe(false);
+  });
+
+  test('打开右挂：左右边距各 +0.5em，行尾 。 推出', async function ({ page }) {
+    await openHost(page, 8.5);
+    await setParagraph(page, '一二三四五六七。八九十一二三四五六七八九十abcdefghij');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      var fs = parseFloat(getComputedStyle(p).fontSize);
+      p.style.paddingRight = '0.2em';
+      void host.offsetHeight;
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangRight: 'stops' },
+      });
+      var pr = parseFloat(getComputedStyle(p).paddingRight) / fs;
+      var pl = parseFloat(getComputedStyle(p).paddingLeft) / fs;
+      var end = p.querySelector('[data-ts-hang-end]');
+      return {
+        padRightEm: pr,
+        padLeftEm: pl,
+        hung: !!(end && (end.textContent || '').indexOf('。') >= 0),
+        hangMr: end ? end.style.marginRight : '',
+      };
+    });
+    expect(info.padRightEm).toBeCloseTo(0.7, 2);
+    expect(info.padLeftEm).toBeCloseTo(0.5, 2);
+    expect(info.hung).toBe(true);
+    expect(info.hangMr).toBe('-0.5em');
+    var gutter = await hangGutter(page);
+    expect(gutter.overflow).toBeGreaterThan(gutter.fs * 0.15);
+  });
+
+  test('挤进可悬挂：行内缝撑满，墨过内容盒右缘，不用 transform', async function ({ page }) {
+    await openHost(page, 12);
+    await setParagraph(page, '一，二三四五六七八，甲乙丙丁戊己庚辛壬癸子丑寅卯');
+    var before = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      window.Katsuji.apply(host);
+      window.Katsuji.relaxBuiltinLineBreak(host);
+      void host.offsetHeight;
+      p.style.paddingRight = '0.5em';
+      var found = null;
+      for (var em = 6; em <= 14; em += 0.1) {
+        host.style.width = em + 'em';
+        void host.offsetHeight;
+        var lines = window.Katsuji.measureBlockVisualLines(p).lines;
+        if (lines.length < 2) continue;
+        if (/，$/.test(lines[0].text) || lines[0].text.indexOf('，') < 0) continue;
+        if (!/^，/.test(lines[1].text)) continue;
+        host.style.width = lines[0].lineVisualEm + 0.4 + 0.5 + 'em';
+        void host.offsetHeight;
+        var again = window.Katsuji.measureBlockVisualLines(p).lines;
+        if (again.length < 2 || /^，/.test(again[0].text) || !/^，/.test(again[1].text)) continue;
+        if (again[0].text.indexOf('，') < 0) continue;
+        found = { first: again[0].text, second: again[1].text };
+        break;
+      }
+      return found;
+    });
+    expect(before).toBeTruthy();
+    expect(before.first).toMatch(/，/);
+    expect(before.second).toMatch(/^，/);
+
+    var after = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      window.Katsuji.resetHangAdjustments(host);
+      p.style.paddingRight = '0.5em';
+      var hit = window.Katsuji.processLine(p, 0, {
+        hangingPunctuation: { hangRight: 'stops' },
+      });
+      void host.offsetHeight;
+      var layout = window.Katsuji.buildBlockLayout(p);
+      var range = window.Katsuji.lineItemBounds(layout.items, layout.heads, 0);
+      var interiorPad = 0;
+      for (var i = range.startIndex; i <= range.endIndex; i++) {
+        if (layout.items[i].type !== 'char' || layout.items[i].ch !== '，') continue;
+        if (i + 1 <= range.endIndex && layout.items[i + 1].type === 'gap') {
+          interiorPad = parseFloat(layout.items[i + 1].el.style.paddingLeft) || 0;
+        }
+        break;
+      }
+      var end = p.querySelector('[data-ts-hang-end]');
+      var lineEnd = null;
+      if (hit && hit.parts) {
+        for (var n = 0; n < hit.parts.length; n++) {
+          if (hit.parts[n].kind === 'line-end') lineEnd = hit.parts[n];
+        }
+      }
+      return {
+        branch: lineEnd && lineEnd.branch,
+        usedPushFallback: lineEnd && lineEnd.usedPushFallback,
+        fillEm: lineEnd && lineEnd.fillEm,
+        interiorPad: interiorPad,
+        transform: end ? end.style.transform : '',
+      };
+    });
+    expect(after.branch).toBe('5.1');
+    expect(after.usedPushFallback).toBe(false);
+    expect(after.fillEm).toBeGreaterThan(0.05);
+    expect(after.interiorPad).toBeGreaterThan(0.05);
+    expect(after.transform).toBe('');
+    var gutter = await hangGutter(page);
+    expect(gutter.hung).toBe(true);
+    expect(gutter.ch).toMatch(/[，。、]/);
+    expect(gutter.leftoverEm).toBeLessThan(0.25);
+    expect(gutter.overflow).toBeGreaterThan(gutter.fs * 0.15);
+  });
+
+  test('抽 。」：串内连写先收半角，」才能跟上来', async function ({ page }) {
+    await openHost(page, 29);
+    await setParagraph(
+      page,
+      '《汉书》有云：「天下熙熙，皆为利来；天下攘攘，皆为利往。」这话放在今天，也并不过时。后面还有很多汉字汉字汉字汉字汉字汉字',
+    );
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      p.style.textIndent = '2em';
+      host.style.width = '29em';
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangLeft: true, hangRight: 'stops' },
+      });
+      var lines = window.Katsuji.measureBlockVisualLines(p).lines;
+      var together = -1;
+      for (var i = 0; i < lines.length; i++) {
+        if (/往。」/.test((lines[i].text || '').replace(/\s+/g, ''))) together = i;
+      }
+      var periodHalf = false;
+      var halfs = p.querySelectorAll('.ts-half-punct');
+      for (var h = 0; h < halfs.length; h++) {
+        if ((halfs[h].textContent || '').indexOf('。') >= 0) periodHalf = true;
+      }
+      return { together: together, text: together >= 0 ? lines[together].text : '', periodHalf: periodHalf };
+    });
+    expect(info.together).toBeGreaterThanOrEqual(0);
+    expect(info.text).toMatch(/往。」/);
+    expect(info.periodHalf).toBe(true);
+  });
+
+  test('抽不可悬挂 」：第四步剩 0.5 也要摊满正文，不是停在沟里', async function ({ page }) {
+    await openHost(page, 33);
+    await setParagraph(
+      page,
+      '说、旅行手册、食谱……收银处贴着告示：「满百减十；学生证再九折。」有个孩子问：「妈妈」后面还有汉字汉字汉字汉字汉字',
+    );
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      host.style.width = '33em';
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangLeft: false, hangRight: 'stops' },
+      });
+      var p = host.querySelector('p');
+      var lines = window.Katsuji.measureBlockVisualLines(p).lines;
+      var layout = window.Katsuji.buildBlockLayout(p);
+      var L = -1;
+      for (var i = 0; i < lines.length; i++) {
+        if (/折。」/.test((lines[i].text || '').replace(/\s+/g, ''))) {
+          L = i;
+          break;
+        }
+      }
+      if (L < 0) return { found: false };
+      var maxEm = window.Katsuji.blockLineMaxEm(layout, L);
+      var visual = lines[L].lineVisualEm;
+      var end = p.querySelector('[data-ts-hang-end]');
+      return {
+        found: true,
+        text: lines[L].text,
+        leftoverEm: maxEm - visual,
+        hungClose: !!(end && (end.textContent || '').indexOf('」') >= 0),
+      };
+    });
+    expect(info.found).toBe(true);
+    expect(info.text).toMatch(/折。」/);
+    expect(info.hungClose).toBe(false);
+    expect(info.leftoverEm).toBeLessThan(0.12);
+  });
+
+  test('抽段末 。：连写剩 0.5 也要摊满，句号进沟', async function ({ page }) {
+    await openHost(page, 27);
+    await setParagraph(page, '今英国议会所提之条件」「我相信是这正是美洲的共同心声。');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangRight: 'stops' },
+      });
+      var p = host.querySelector('p');
+      var lines = window.Katsuji.measureBlockVisualLines(p).lines;
+      var layout = window.Katsuji.buildBlockLayout(p);
+      var L = lines.length - 1;
+      for (var i = 0; i < lines.length; i++) {
+        if (/。$/.test((lines[i].text || '').replace(/\s+$/, ''))) {
+          L = i;
+          break;
+        }
+      }
+      var maxEm = layout ? window.Katsuji.blockLineMaxEm(layout, L) : 0;
+      var visual = lines[L] ? lines[L].lineVisualEm : 0;
+      var end = p.querySelector('[data-ts-hang-end]');
+      return {
+        lineCount: lines.length,
+        text: lines[L] && lines[L].text,
+        leftoverEm: maxEm - visual,
+        hung: !!(end && (end.textContent || '').indexOf('。') >= 0),
+        hangMr: end ? end.style.marginRight : '',
+      };
+    });
+    expect(info.hung).toBe(true);
+    expect(info.hangMr).toBe('-0.5em');
+    expect(info.leftoverEm).toBeLessThan(0.25);
+    var gutter = await hangGutter(page);
+    expect(gutter.overflow).toBeGreaterThan(gutter.fs * 0.15);
+  });
+
+  test('行尾 」 默认不推出', async function ({ page }) {
+    await openHost(page, 12);
+    await setParagraph(page, '一二三四五六七」八九十一二三四五六七八九十');
+    var hung = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangRight: 'stops' },
+      });
+      var p = host.querySelector('p');
+      var end = p.querySelector('[data-ts-hang-end]');
+      return !!(end && (end.textContent || '').indexOf('」') >= 0);
+    });
+    expect(hung).toBe(false);
+  });
+
+  test('开启悬挂左右 padding 各 +0.5em', async function ({ page }) {
+    await openHost(page, 12);
+    await setParagraph(page, '（一二三四五六七八九十一二三四五六七八九十');
+    var pad = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      var fs = parseFloat(getComputedStyle(p).fontSize);
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangRight: 'stops' },
+      });
+      return {
+        left: parseFloat(getComputedStyle(p).paddingLeft) / fs,
+        right: parseFloat(getComputedStyle(p).paddingRight) / fs,
+      };
+    });
+    expect(pad.left).toBeCloseTo(0.5, 2);
+    expect(pad.right).toBeCloseTo(0.5, 2);
+  });
+
+  test('段末短行 。 不挂', async function ({ page }) {
+    await openHost(page, 20);
+    await setParagraph(page, '短句。');
+    var hung = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangRight: 'stops' },
+      });
+      return !!host.querySelector('[data-ts-hang-end]');
+    });
+    expect(hung).toBe(false);
+  });
+
+  test('取消调整拿掉我们加的 padding', async function ({ page }) {
+    await openHost(page, 8);
+    await setParagraph(page, '一二三四五六七。八九十一二三四五六七八九十abcdefghij');
+    var pads = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      var fs = parseFloat(getComputedStyle(p).fontSize);
+      p.style.paddingRight = '0.2em';
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangRight: 'stops' },
+      });
+      var midRight = parseFloat(getComputedStyle(p).paddingRight) / fs;
+      var midLeft = parseFloat(getComputedStyle(p).paddingLeft) / fs;
+      window.Katsuji.resetHangAdjustments(host);
+      var afterRight = parseFloat(getComputedStyle(p).paddingRight) / fs;
+      var afterLeft = parseFloat(getComputedStyle(p).paddingLeft) / fs;
+      return { midRight: midRight, midLeft: midLeft, afterRight: afterRight, afterLeft: afterLeft };
+    });
+    expect(pads.midRight).toBeCloseTo(0.7, 2);
+    expect(pads.midLeft).toBeCloseTo(0.5, 2);
+    expect(pads.afterRight).toBeCloseTo(0.2, 2);
+    expect(pads.afterLeft).toBeCloseTo(0, 2);
+  });
+
+  test('首行 text-indent 计入行宽（悬挂关）', async function ({ page }) {
+    await openHost(page, 16);
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      host.innerHTML = '';
+      var p = document.createElement('p');
+      p.textContent = '字字字字字字字字字字字字字字字字字字字字字字字字';
+      p.style.textIndent = '2em';
+      host.appendChild(p);
+      window.Katsuji.apply(host);
+      window.Katsuji.relaxBuiltinLineBreak(host);
+      void host.offsetHeight;
+      var layout = window.Katsuji.buildBlockLayout(p);
+      return {
+        maxEm: layout.maxEm,
+        indentEm: layout.indentEm,
+        firstLineMax: window.Katsuji.lineMaxEm(layout.maxEm, layout.indentEm, 0),
+        secondLineMax: window.Katsuji.lineMaxEm(layout.maxEm, layout.indentEm, 1),
+      };
+    });
+    expect(info.indentEm).toBeCloseTo(2, 2);
+    expect(info.firstLineMax).toBeCloseTo(info.maxEm - 2, 2);
+    expect(info.secondLineMax).toBeCloseTo(info.maxEm, 2);
+  });
+
+  test('半角盒不继承段首 text-indent', async function ({ page }) {
+    await openHost(page, 8.5);
+    await setParagraph(page, '一二三四五六七。八九十一二三四五六七八九十abcdefghij');
+    var indent = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangRight: 'stops' },
+      });
+      p.style.textIndent = '2em';
+      void host.offsetHeight;
+      var half = p.querySelector('span.ts-half-punct');
+      return half ? getComputedStyle(half).textIndent : null;
+    });
+    expect(indent).toBeTruthy();
+    expect(parseFloat(indent) || 0).toBe(0);
   });
 });

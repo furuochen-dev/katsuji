@@ -9,3 +9,16 @@ span.ts-gap {
   min-height: 1ex;
   box-sizing: content-box;
 }
+
+/* inline-block 会继承 text-indent，半角盒里的字会被推出盒外 */
+span.ts-half-punct,
+span.ts-line-end-half,
+span[data-ts-line-start-nowrap] {
+  text-indent: 0;
+}
+
+span[data-ts-line-start-nowrap] {
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: baseline;
+}

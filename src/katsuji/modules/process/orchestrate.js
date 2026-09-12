@@ -1,12 +1,20 @@
 /** 编排：整篇 1–2 步之后，每段从前往后一行做完 3–5 */
 import { mergeHangConfig } from '../core/config.js';
-import { resetGapStyles, resetAllGapStyles } from './preprocess/segmenter.js';
+import { resetGapStyles, resetAllGapStyles, restoreMissingGaps } from './preprocess/segmenter.js';
 import { unwrapHalfPunctInBlock, unwrapNoneRuns } from '../core/punct-wrap.js';
 import { glueAdjacentNonePunct } from './preprocess/combo.js';
 import { relaxBuiltinLineBreak } from './preprocess/line-break.js';
 import { defaultRoot } from '../env.js';
 import { buildBlockLayout } from '../measure/line-width.js';
 import { processLine } from './process-line.js';
+import { applyHangGutter, clearHangGutter } from './hanging-pad.js';
+import { resolveHangingPunctuation } from './typeset-rules.js';
+
+function hangingFromOptions(options, hangOpts) {
+  if (options && options.hangingPunctuation != null) return options.hangingPunctuation;
+  if (hangOpts && hangOpts.hangingPunctuation != null) return hangOpts.hangingPunctuation;
+  return null;
+}
 
 function eachTypesetBlock(root, fn) {
   var blocks = root.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li');
@@ -25,23 +33,28 @@ function typesetBlocks(root) {
   return out;
 }
 
-function prepareBlock(block) {
+function prepareBlock(block, hangingPunctuation) {
+  clearHangGutter(block);
   resetGapStyles(block);
   unwrapHalfPunctInBlock(block);
+  restoreMissingGaps(block);
   glueAdjacentNonePunct(block);
+  applyHangGutter(block, hangingPunctuation);
 }
 
 export function applyHangAvoidance(root, options) {
   root = defaultRoot(root);
   if (!root) return;
   options = options || {};
-  var hangOpts = mergeHangConfig(options.hang);
+  var hangOpts = Object.assign({}, mergeHangConfig(options.hang));
+  var hangingPunctuation = hangingFromOptions(options, hangOpts);
+  hangOpts.hangingPunctuation = hangingPunctuation;
   if (options.relaxBuiltinLineBreak !== false) {
     relaxBuiltinLineBreak(root);
     void root.offsetHeight;
   }
   eachTypesetBlock(root, function (block) {
-    prepareBlock(block);
+    prepareBlock(block, hangingPunctuation);
     var L = 0;
     while (true) {
       var layout = buildBlockLayout(block);
@@ -57,9 +70,11 @@ export function resetHangAdjustments(root) {
   root = defaultRoot(root);
   if (!root) return;
   eachTypesetBlock(root, function (block) {
+    clearHangGutter(block);
     resetAllGapStyles(block);
     unwrapHalfPunctInBlock(block);
     unwrapNoneRuns(block);
+    restoreMissingGaps(block);
   });
   if (root.nodeType === 1) {
     root.removeAttribute('data-ts-step-phase');
@@ -78,7 +93,9 @@ export function stepHangAvoidance(root, options) {
   root = defaultRoot(root);
   if (!root) return null;
   options = options || {};
-  var hangOpts = mergeHangConfig(options.hang);
+  var hangOpts = Object.assign({}, mergeHangConfig(options.hang));
+  var hangingPunctuation = hangingFromOptions(options, hangOpts);
+  hangOpts.hangingPunctuation = hangingPunctuation;
 
   if (options.relaxBuiltinLineBreak !== false) {
     relaxBuiltinLineBreak(root);
@@ -86,7 +103,9 @@ export function stepHangAvoidance(root, options) {
   }
 
   if (root.getAttribute && root.getAttribute('data-ts-step-phase') !== 'lines') {
-    eachTypesetBlock(root, prepareBlock);
+    eachTypesetBlock(root, function (block) {
+      prepareBlock(block, hangingPunctuation);
+    });
     if (root.nodeType === 1) {
       root.setAttribute('data-ts-step-phase', 'lines');
       root.setAttribute('data-ts-step-block', '0');

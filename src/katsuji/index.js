@@ -18,6 +18,8 @@ import {
   measureRootVisualLines,
   measureLineVisualMetricsPx,
   defaultStrategyDecider,
+  lineMaxEm,
+  blockLineMaxEm,
 } from './modules/measure/line-width.js';
 import {
   flattenParagraph,
@@ -46,6 +48,8 @@ const Katsuji = {
   measureBlockVisualLines,
   measureRootVisualLines,
   measureLineVisualMetricsPx,
+  lineMaxEm,
+  blockLineMaxEm,
   flattenParagraph,
   findLineFirstCharIndices,
   lineItemBounds,

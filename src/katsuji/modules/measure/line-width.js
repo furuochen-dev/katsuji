@@ -1,4 +1,4 @@
-/** 量一行视觉宽：DOM 逐字宽 + 空（gap pm，跨行 combo 不计）− 半角 span 修正；hang/surplus 用此结果 */
+/** 量一行视觉宽：DOM 逐字宽 + 空（gap pm）− 半角 span 修正；hang/surplus 用此结果 */
 import { win, defaultRoot } from '../env.js';
 import { parseCssLengthToEm } from '../core/dom-util.js';
 import {
@@ -13,7 +13,11 @@ import {
   hangAmountsEm,
   decideHangStrategy,
   GAP_SHARE_MIN_EM,
+  lineMaxEm,
 } from '../process/typeset-rules.js';
+import { hangPadEmFromBlock } from '../process/hanging-pad.js';
+
+export { lineMaxEm };
 
 export function getBlockEmPx(block) {
   if (!block || !win?.getComputedStyle) return 16;
@@ -23,7 +27,18 @@ export function getBlockEmPx(block) {
 
 export function getBlockContentWidthPx(block) {
   if (!block) return 0;
-  return block.clientWidth || 0;
+  var w = block.clientWidth || 0;
+  if (!win || !win.getComputedStyle) return w;
+  var cs = win.getComputedStyle(block);
+  var pl = parseFloat(cs.paddingLeft) || 0;
+  var pr = parseFloat(cs.paddingRight) || 0;
+  return Math.max(0, w - pl - pr);
+}
+
+export function getBlockIndentEm(block, emPx) {
+  if (!block || !win || !win.getComputedStyle || !(emPx > 0)) return 0;
+  var indent = parseCssLengthToEm(win.getComputedStyle(block).textIndent, emPx);
+  return indent > 0 ? indent : 0;
 }
 
 function charItemHalfSpanEl(item) {
@@ -40,6 +55,9 @@ function charItemHalfSpanEl(item) {
 
 function halfEmSpanLayoutPx(span, emPx, glyphPx) {
   if (!span) return glyphPx;
+  if (span.getAttribute('data-ts-hang-end') === '1' || span.getAttribute('data-ts-hang-start') === '1') {
+    return 0;
+  }
   if (span.classList.contains('ts-half-punct')) {
     return 0.5 * emPx;
   }
@@ -125,9 +143,17 @@ export function buildBlockLayout(block) {
     emPx: emPx,
     maxPx: maxPx,
     maxEm: maxPx / emPx,
+    indentEm: getBlockIndentEm(block, emPx),
+    hangPadEm: hangPadEmFromBlock(block),
     items: items,
     heads: heads,
   };
+}
+
+export function blockLineMaxEm(layout, lineIndex) {
+  var range = lineItemBounds(layout.items, layout.heads, lineIndex);
+  var lineEm = lineVisualWidthEm(layout, range.startIndex, range.endIndex);
+  return lineMaxEm(layout.maxEm, layout.indentEm || 0, lineIndex, layout.hangPadEm || 0, lineEm);
 }
 
 function measureLineVisualMetricsForLine(layout, lineIndex) {
@@ -198,7 +224,11 @@ export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var pullBaseEm = marginOpts.pullBaseEm != null ? marginOpts.pullBaseEm : 1;
   var pushBaseEm = marginOpts.pushBaseEm != null ? marginOpts.pushBaseEm : 1;
   var lineEm = lineVisualWidthEm(layout, startIndex, endIndex);
-  var amounts = hangAmountsEm(lineEm, layout.maxEm, pullBaseEm, pushBaseEm);
+  var maxEm = marginOpts.maxEm != null ? marginOpts.maxEm : layout.maxEm;
+  if (marginOpts.maxEm == null && marginOpts.lineIndex != null) {
+    maxEm = blockLineMaxEm(layout, marginOpts.lineIndex);
+  }
+  var amounts = hangAmountsEm(lineEm, maxEm, pullBaseEm, pushBaseEm);
   var pullAmountEm = amounts.pullAmountEm;
   var pushAmountEm = amounts.pushAmountEm;
   var decide =

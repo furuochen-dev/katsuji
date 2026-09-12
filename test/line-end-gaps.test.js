@@ -58,15 +58,62 @@ describe('第 5 步抽缝：压入算行尾缝，推出不算', function () {
     assert.deepEqual(gaps.pushGaps, []);
   });
 
-  it('连写锁死的行尾缝不进抽缝', function () {
-    var trailing = gapEl({ 'data-ts-combo-fixed': '1' });
+  it('推出前有空：括号前的缝和新行尾后的缝都不摊', function () {
+    var interior = gapEl();
+    var newEndTrail = gapEl();
+    var openBefore = gapEl();
+    var items = [
+      { type: 'char', ch: '汉' },
+      { type: 'char', ch: '，' },
+      { type: 'gap', el: interior },
+      { type: 'char', ch: '字' },
+      { type: 'char', ch: '：' },
+      { type: 'gap', el: newEndTrail },
+      { type: 'gap', el: openBefore },
+      { type: 'char', ch: '（' },
+    ];
+    var lastIdx = 7;
+    var stayEndIdx = 4;
+    var gaps = collectLineEndHangGaps(items, { startIndex: 0, endIndex: 7 }, lastIdx, stayEndIdx);
+    assert.deepEqual(gaps.interiorGaps, [interior, newEndTrail, openBefore]);
+    assert.deepEqual(gaps.pushGaps, [interior]);
+    assert.ok(gaps.pushGaps.indexOf(openBefore) < 0);
+    assert.ok(gaps.pushGaps.indexOf(newEndTrail) < 0);
+  });
+
+  it('不推字时推出缝仍是行内缝', function () {
+    var interior = gapEl();
+    var trailing = gapEl();
+    var items = [
+      { type: 'char', ch: '汉' },
+      { type: 'char', ch: '，' },
+      { type: 'gap', el: interior },
+      { type: 'char', ch: '字' },
+      { type: 'gap', el: trailing },
+    ];
+    var gaps = collectLineEndHangGaps(items, { startIndex: 0, endIndex: 4 }, 3, 3);
+    assert.deepEqual(gaps.pushGaps, [interior]);
+  });
+
+  it('推完没有留下字：推出缝为空', function () {
+    var openBefore = gapEl();
+    var items = [
+      { type: 'char', ch: '「' },
+      { type: 'gap', el: openBefore },
+      { type: 'char', ch: '（' },
+    ];
+    var gaps = collectLineEndHangGaps(items, { startIndex: 0, endIndex: 2 }, 2, -1);
+    assert.deepEqual(gaps.interiorGaps, [openBefore]);
+    assert.deepEqual(gaps.pushGaps, []);
+  });
+
+  it('连写已删缝：行尾没有缝就不进抽缝', function () {
     var items = [
       { type: 'char', ch: '汉' },
       { type: 'char', ch: '」' },
-      { type: 'gap', el: trailing },
       { type: 'char', ch: '。' },
     ];
-    var gaps = collectLineEndHangGaps(items, { startIndex: 0, endIndex: 2 }, 1);
+    var gaps = collectLineEndHangGaps(items, { startIndex: 0, endIndex: 1 }, 1);
     assert.deepEqual(gaps.pullGaps, []);
     assert.deepEqual(gaps.pushGaps, []);
   });

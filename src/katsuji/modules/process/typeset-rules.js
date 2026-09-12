@@ -4,6 +4,7 @@ import {
   isIllegalOnEdgeStart,
   isSpaceOnEdgeStart,
   AFTER_CHARS,
+  DEFAULT_HANGABLE_STOPS,
 } from '../text/punctuation-rules.js';
 
 export var PULL_MAX_EM = 0.5;
@@ -48,6 +49,74 @@ export function isSpaceAfter(ch) {
   return AFTER_CHARS[ch] === true;
 }
 
+export function isHangableStop(ch) {
+  return DEFAULT_HANGABLE_STOPS.indexOf(ch) !== -1;
+}
+
+/** @param {unknown} raw */
+export function resolveHangingPunctuation(raw) {
+  if (raw == null || raw === false) {
+    return { hangLeft: false, hangLeftIndent: false, hangRight: 'none' };
+  }
+  if (raw === true) {
+    return { hangLeft: false, hangLeftIndent: true, hangRight: 'stops' };
+  }
+  if (typeof raw !== 'object') {
+    return { hangLeft: false, hangLeftIndent: false, hangRight: 'none' };
+  }
+  var hangRight = raw.hangRight;
+  if (hangRight !== 'stops' && hangRight !== 'all' && hangRight !== 'none') hangRight = 'none';
+  var hangLeft = !!raw.hangLeft;
+  var on = hangLeft || hangRight !== 'none' || raw.hangLeftIndent === true;
+  var hangLeftIndent = raw.hangLeftIndent == null ? on : !!raw.hangLeftIndent;
+  return { hangLeft: hangLeft, hangLeftIndent: hangLeftIndent, hangRight: hangRight };
+}
+
+/** 缩进左挂要缩进够 0.5em；全局左挂每行都推。 */
+export function shouldProtrudeLineStartOpen(lineIndex, indentEm, hp) {
+  var n = hp && hp.hangRight != null ? hp : resolveHangingPunctuation(hp);
+  if (n.hangLeft) return true;
+  return !!(n.hangLeftIndent && lineIndex === 0 && indentEm >= 0.5);
+}
+
+export function isHangable(ch, hangRight) {
+  if (hangRight === 'all') return isSpaceAfter(ch);
+  if (hangRight === 'stops') return isHangableStop(ch);
+  return false;
+}
+
+/** 包半角后相对未包少占的内口：可悬挂 1，只顶格 0.5 */
+export function wrapHalfEm(ch, hangRight) {
+  if (!isSpaceAfter(ch)) return 0;
+  return isHangable(ch, hangRight) ? 1 : 0.5;
+}
+
+export function hangingPadPlan(hp) {
+  var n = resolveHangingPunctuation(hp);
+  var on = n.hangLeft || n.hangLeftIndent || n.hangRight !== 'none';
+  return { left: on, right: on };
+}
+
+export function nextHangPadEm(currentEm) {
+  return (Number(currentEm) || 0) + 0.5;
+}
+
+/**
+ * 正文框行宽：2′ 不当剩余。只加一侧时 contentEm 再减 hangPadEm；
+ * 左右都加则内容盒已是正文，hangPadEm 为 0。沟只吃剩余，行宽不低于本行合。
+ * @param {number} [hangPadEm]
+ * @param {number} [lineEm]
+ */
+export function lineMaxEm(contentEm, indentEm, lineIndex, hangPadEm, lineEm) {
+  var em = contentEm;
+  if (lineIndex === 0 && indentEm > 0) em -= indentEm;
+  if (hangPadEm > 0) {
+    em -= hangPadEm;
+    if (lineEm != null && em < lineEm) em = lineEm;
+  }
+  return em;
+}
+
 /** 第 1 步：缝插在哪一侧。none / 汉字 / 西文都不插。 */
 export function gapInsertSide(ch) {
   var cls = punctGapClass(ch);
@@ -58,7 +127,7 @@ export function gapInsertSide(ch) {
 
 /**
  * 成对：`后有空` 后紧跟任意标点，或任意标点后紧跟 `前有空`。
- * @returns {null|'after-before'|'single'} after-before = 4.1，只锁前一条缝
+ * @returns {null|'after-before'|'single'} after-before = 4.1，只删前一条缝
  */
 export function comboPairKind(leftCh, rightCh) {
   var p = punctGapClass(leftCh);
@@ -73,7 +142,7 @@ export function isComboPair(leftCh, rightCh) {
   return comboPairKind(leftCh, rightCh) != null;
 }
 
-/** 4.1 两条缝只锁第一条；4.2 锁中间那一条。 */
+/** 4.1 两条缝只删第一条；4.2 删中间那一条。 */
 export function comboGapsToLockCount(gapCountBetween, kind) {
   if (!kind || !(gapCountBetween > 0)) return 0;
   return 1;
@@ -114,8 +183,8 @@ export function opticalMoveEm(movedChars, opts) {
   if (opts.junctionRight && chars.length) {
     em -= comboDeductionEm(chars[chars.length - 1], opts.junctionRight);
   }
-  if (opts.wrapLastHalf) em -= 0.5;
-  if (opts.wrapNewEndHalf) em += 0.5;
+  if (opts.wrapLastHalf) em -= opts.wrapLastEm != null ? opts.wrapLastEm : 0.5;
+  if (opts.wrapNewEndHalf) em += opts.wrapNewEndEm != null ? opts.wrapNewEndEm : 0.5;
   if (opts.prevAlreadyHalf) em += 0.5;
   return em;
 }
@@ -161,7 +230,7 @@ export function collectPush51(thisLineChars) {
   return trailing;
 }
 
-/** 5.2 压入：行头连续 `前有空`（0+）+ 再一个不是 `前有空` 的字 */
+/** 5.2 压入：行头连续 `前有空`（0+）+ 再一个不是 `前有空` 的字 + 其后连续 `不能在行头` */
 export function collectPull52(nextLineChars) {
   var run = [];
   var i = skipWs(nextLineChars, 0, 1);
@@ -176,7 +245,21 @@ export function collectPull52(nextLineChars) {
     i += 1;
   }
   i = skipWs(nextLineChars, i, 1);
-  if (i < nextLineChars.length) run.push(nextLineChars[i]);
+  if (i < nextLineChars.length) {
+    run.push(nextLineChars[i]);
+    i += 1;
+  }
+  i = skipWs(nextLineChars, i, 1);
+  while (i < nextLineChars.length) {
+    var tail = nextLineChars[i];
+    if (isLayoutWhitespace(tail)) {
+      i += 1;
+      continue;
+    }
+    if (!isCannotLineStart(tail)) break;
+    run.push(tail);
+    i += 1;
+  }
   return run;
 }
 
@@ -220,13 +303,30 @@ export function charBeforeSuffix(thisLineChars, suffixChars) {
 /**
  * @param {string[]} thisLineChars
  * @param {string[]} nextLineChars
- * @param {{ newEndAlreadyHalf?: boolean }} [opts] 推完后的新行尾若已是半角盒，合里已减过，基数不再 +0.5
+ * @param {{ newEndAlreadyHalf?: boolean, hangRight?: string }} [opts] 推完后的新行尾若已是半角盒，合里已减过，基数不再加
  */
 export function computeLineEndBases(thisLineChars, nextLineChars, opts) {
   opts = opts || {};
   var thisEnd = lastSignificantChar(thisLineChars);
   var nextStart = firstSignificantChar(nextLineChars);
   var alreadyHalf = !!opts.newEndAlreadyHalf;
+  var hangRight = opts.hangRight || 'none';
+
+  function wrapLastOpts(chars) {
+    var wrap = shouldWrapMovedLastHalf(chars);
+    return {
+      wrapLastHalf: wrap,
+      wrapLastEm: wrap ? wrapHalfEm(chars[chars.length - 1], hangRight) : 0,
+    };
+  }
+
+  function wrapNewEndOpts(newEndCh) {
+    var wrap = !!(newEndCh && isSpaceAfter(newEndCh) && !alreadyHalf);
+    return {
+      wrapNewEndHalf: wrap,
+      wrapNewEndEm: wrap ? wrapHalfEm(newEndCh, hangRight) : 0,
+    };
+  }
 
   if (nextLineStartsForbidden(nextLineChars)) {
     var pull51 = collectPull51(nextLineChars);
@@ -236,16 +336,20 @@ export function computeLineEndBases(thisLineChars, nextLineChars, opts) {
       branch: '5.1',
       pullChars: pull51,
       pushChars: push51,
-      pullBaseEm: opticalMoveEm(pull51, {
-        junctionLeft: thisEnd,
-        deductInternalCombo: true,
-        wrapLastHalf: shouldWrapMovedLastHalf(pull51),
-      }),
-      pushBaseEm: opticalMoveEm(push51, {
-        junctionRight: nextStart,
-        deductInternalCombo: false,
-        wrapNewEndHalf: !!(newEnd51 && isSpaceAfter(newEnd51) && !alreadyHalf),
-      }),
+      pullBaseEm: opticalMoveEm(
+        pull51,
+        Object.assign(
+          { junctionLeft: thisEnd, deductInternalCombo: true },
+          wrapLastOpts(pull51),
+        ),
+      ),
+      pushBaseEm: opticalMoveEm(
+        push51,
+        Object.assign(
+          { junctionRight: nextStart, deductInternalCombo: false },
+          wrapNewEndOpts(newEnd51),
+        ),
+      ),
     };
   }
 
@@ -256,16 +360,20 @@ export function computeLineEndBases(thisLineChars, nextLineChars, opts) {
     branch: '5.2',
     pullChars: pull52,
     pushChars: push52,
-    pullBaseEm: opticalMoveEm(pull52, {
-      junctionLeft: thisEnd,
-      deductInternalCombo: true,
-      wrapLastHalf: shouldWrapMovedLastHalf(pull52),
-    }),
-    pushBaseEm: opticalMoveEm(push52, {
-      junctionRight: nextStart,
-      deductInternalCombo: false,
-      wrapNewEndHalf: !!(newEnd52 && isSpaceAfter(newEnd52) && !alreadyHalf),
-    }),
+    pullBaseEm: opticalMoveEm(
+      pull52,
+      Object.assign(
+        { junctionLeft: thisEnd, deductInternalCombo: true },
+        wrapLastOpts(pull52),
+      ),
+    ),
+    pushBaseEm: opticalMoveEm(
+      push52,
+      Object.assign(
+        { junctionRight: nextStart, deductInternalCombo: false },
+        wrapNewEndOpts(newEnd52),
+      ),
+    ),
   };
 }
 
@@ -279,7 +387,7 @@ export function hangAmountsEm(lineEm, maxEm, pullBaseEm, pushBaseEm) {
 
 export function lineStepPlan(lineIndex, lineCount) {
   return {
-    step3: lineIndex > 0,
+    step3: true,
     step4: true,
     step5: lineCount > 1 && lineIndex < lineCount - 1,
   };

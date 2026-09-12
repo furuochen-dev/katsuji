@@ -130,6 +130,7 @@ Katsuji.defaultStrategyDecider(tieBreak);
 Katsuji.applyHangAvoidance(root, {
   relaxBuiltinLineBreak: false,
   hang: { strategyDecider: Katsuji.defaultStrategyDecider('pull') },
+  hangingPunctuation: { hangLeftIndent: true, hangLeft: false, hangRight: 'stops' },
 });
 ```
 
@@ -141,6 +142,18 @@ root.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li').forEach(function (block) 
   Katsuji.applyLineSurplusPaddingByVisualWidth(block);
 });
 ```
+
+### 标点悬挂（`hangingPunctuation`）
+
+无参 `applyHangAvoidance` 不开悬挂。打开后默认只挂行尾 `，` `。` `、`，并打开**缩进左挂**；**全局左挂**默认关。在块现有 padding 上左右各再加 0.5em 当沟（对称）。
+
+```js
+Katsuji.applyHangAvoidance(root, {
+  hangingPunctuation: { hangLeftIndent: true, hangLeft: false, hangRight: 'stops' },
+});
+```
+
+`hangRight`：`'stops'` 句读 / `'all'` 全部 `后有空` / `'none'` 不挂。`hangLeftIndent`（打开时的默认）：段首行且 `text-indent ≥ 0.5em` 时把开括号推进缩进；没有缩进不推。`hangLeft`：每一行再推进左沟。
 
 ### 挤进 / 推出策略（`hang.strategyDecider`）
 

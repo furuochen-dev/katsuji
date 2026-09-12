@@ -28,7 +28,6 @@ function applySurplusOnLine(layout, L) {
   var surplusEm = layout.maxEm - visualEm;
   if (!(surplusEm > 1e-6)) return null;
   var adjGaps = collectGapsBetween(layout.items, range.startIndex, range.endIndex, {
-    skipComboFixed: true,
     omitLineEnd: true,
     omitLineStart: true,
   });
