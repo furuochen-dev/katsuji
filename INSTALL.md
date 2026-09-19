@@ -167,7 +167,7 @@ Katsuji.applyHangAvoidance(root, {
 - `'pull'`：采用挤进（负 margin；压入量 ≤ 0 时不抽缝）
 - `'none'`：两侧皆不可用，本行跳过
 
-内置默认策略 `Katsuji.defaultStrategyDecider(tieBreak)`：`tieBreak` 为 `'pull'` 或 `'push'`。压入不超过 `0.5em`（允许多 `0.01em`）。压入量 ≤ 0 仍压入、可以没有可调缝；压入量 > 0 才要有缝来摊。然后比较两侧 per-gap 绝对量，更小者胜出；差值低于 `1e-6` 时采用 `tieBreak`。推出量不是正数、或每条缝不到 `0.01em`，当没这回事。
+内置默认策略 `Katsuji.defaultStrategyDecider(tieBreak)`：`tieBreak` 为 `'pull'` 或 `'push'`。压入不超过 `0.6em`（允许多 `0.01em`）。压入量 ≤ 0 仍压入、可以没有可调缝；压入量 > 0 才要有缝来摊。然后比较两侧 per-gap 绝对量，更小者胜出；差值低于 `1e-6` 时采用 `tieBreak`。推出量不是正数、或每条缝不到 `0.01em`，当没这回事。
 
 根据 JIS X 4051:2004，我们的默认是相等时拉入；虽说 JIS 说的是所有情况都优先拉入，若这符合你的偏好，可以如下自定义。
 

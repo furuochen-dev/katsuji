@@ -10,15 +10,15 @@ import {
 import { defaultStrategyDecider } from '../src/katsuji/modules/measure/line-width.js';
 
 describe('selector', function () {
-  it('压入量 ≤ 0 仍压入；> 0 须有缝且不超过 0.5em（允许多 0.01）', function () {
-    assert.equal(decideHangStrategy(0.5, 1, 0.8, 1), 'pull');
-    assert.equal(decideHangStrategy(0.51, 1, 0.8, 1), 'pull');
-    assert.equal(decideHangStrategy(0.52, 1, 0.8, 1), 'push');
+  it('压入量 ≤ 0 仍压入；> 0 须有缝且不超过 0.6em（允许多 0.01）', function () {
+    assert.equal(decideHangStrategy(0.6, 1, 0.8, 1), 'pull');
+    assert.equal(decideHangStrategy(0.61, 1, 0.8, 1), 'pull');
+    assert.equal(decideHangStrategy(0.62, 1, 0.8, 1), 'push');
     assert.equal(decideHangStrategy(0, 1, 0.3, 1), 'pull');
     assert.equal(decideHangStrategy(-0.1, 1, 0.3, 1), 'pull');
     assert.equal(decideHangStrategy(-0.2, 0, 0.3, 0), 'pull');
     assert.equal(decideHangStrategy(0.2, 0, 0.3, 0), 'none');
-    assert.equal(PULL_MAX_EM + PULL_MAX_SLACK_EM, 0.51);
+    assert.equal(PULL_MAX_EM + PULL_MAX_SLACK_EM, 0.61);
   });
 
   it('没有推出就跳过：压入超上限且无推缝', function () {
@@ -45,14 +45,14 @@ describe('selector', function () {
 
   it('和 hangMargin 里的 defaultStrategyDecider 同一套上限', function () {
     var decide = defaultStrategyDecider('pull');
-    assert.equal(decide(0.5, 1, 0.8, 1), 'pull');
-    assert.equal(decide(0.52, 1, 0.8, 1), 'push');
+    assert.equal(decide(0.6, 1, 0.8, 1), 'pull');
+    assert.equal(decide(0.62, 1, 0.8, 1), 'push');
     assert.equal(decide(0.3, 1, 0.3, 1), 'pull');
   });
 
-  it('撑行：差 0.4em 抽整字改推，推出量 = 行宽−合', function () {
-    var amt = hangAmountsEm(7.6, 8, 1, 0);
+  it('撑行：差 0.3em 抽整字改推，推出量 = 行宽−合', function () {
+    var amt = hangAmountsEm(7.7, 8, 1, 0);
     assert.equal(decideHangStrategy(amt.pullAmountEm, 2, amt.pushAmountEm, 2), 'push');
-    assert.ok(Math.abs(amt.pushAmountEm - 0.4) < 1e-9);
+    assert.ok(Math.abs(amt.pushAmountEm - 0.3) < 1e-9);
   });
 });

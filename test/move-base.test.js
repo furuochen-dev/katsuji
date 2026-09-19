@@ -205,9 +205,9 @@ describe('量和 selector 用的公式', function () {
     assert.equal(amt.pullAmountEm, 0.5);
   });
 
-  it('差 0.4em 抽整字：压入 0.6，应改推', function () {
-    var amt = hangAmountsEm(7.6, 8, 1, 0);
-    assert.ok(amt.pullAmountEm > 0.5);
+  it('差 0.3em 抽整字：压入 0.7，应改推', function () {
+    var amt = hangAmountsEm(7.7, 8, 1, 0);
+    assert.ok(amt.pullAmountEm > 0.6);
   });
 
   it('差 0.5em 抽 。」 扣连写和半角后压入 0.5，本该压入', function () {

@@ -7,7 +7,7 @@ import {
   DEFAULT_HANGABLE_STOPS,
 } from '../text/punctuation-rules.js';
 
-export var PULL_MAX_EM = 0.5;
+export var PULL_MAX_EM = 0.6;
 export var PULL_MAX_SLACK_EM = 0.01;
 export var HANG_STRATEGY_TIE_EPS = 1e-6;
 export var GAP_SHARE_MIN_EM = 0.01;
