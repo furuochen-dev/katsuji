@@ -12,6 +12,7 @@ import {
   comboDeductionEm,
   decideHangStrategy,
 } from '../src/katsuji/modules/process/typeset-rules.js';
+import { applyPunctPreset } from '../src/katsuji/modules/core/punct-config.js';
 
 describe('5.1 收集（下行打头是不能在行头）', function () {
   it('压入：连续禁则，碰到可行头的字就停', function () {
@@ -234,5 +235,84 @@ describe('量和 selector 用的公式', function () {
     assert.ok(amt.pullAmountEm < 0);
     assert.equal(decideHangStrategy(amt.pullAmountEm, 0, amt.pushAmountEm, 0), 'pull');
     assert.equal(decideHangStrategy(0.2, 0, 0.5, 0), 'none');
+  });
+});
+
+describe('JIS 严格：行头小假名的抽推', function () {
+  it('宽松：っゃ可在行头，走 5.2；连续拗音只抽一个', function () {
+    assert.equal(nextLineStartsForbidden(['っ', 'た']), false);
+    assert.equal(nextLineStartsForbidden(['ゃ', 'ゅ', '字']), false);
+    assert.deepEqual(collectPull52(['っ', 'た']), ['っ']);
+    assert.deepEqual(collectPull52(['ゃ', 'ゅ', '字']), ['ゃ']);
+    assert.deepEqual(collectPush52(['言', 'っ']), []);
+    var b = computeLineEndBases(['漢'], ['ゃ', 'ゅ', '字']);
+    assert.equal(b.branch, '5.2');
+    assert.deepEqual(b.pullChars, ['ゃ']);
+    assert.equal(b.pullBaseEm, 1);
+  });
+
+  it('严格：っ不能在行头，走 5.1；连续拗音一起抽', function () {
+    applyPunctPreset('jis-strict');
+    try {
+      assert.equal(nextLineStartsForbidden(['っ', 'た']), true);
+      assert.equal(nextLineStartsForbidden(['ゃ', 'ゅ', '字']), true);
+      assert.equal(nextLineStartsForbidden(['ヵ', '月']), true);
+      assert.deepEqual(collectPull51(['っ', 'た']), ['っ']);
+      assert.deepEqual(collectPull51(['ゃ', 'ゅ', '字']), ['ゃ', 'ゅ']);
+      assert.deepEqual(collectPull51(['っ', '。', '下']), ['っ', '。']);
+      assert.deepEqual(collectPull51(['ヵ', '月']), ['ヵ']);
+      var b = computeLineEndBases(['漢'], ['ゃ', 'ゅ', '字']);
+      assert.equal(b.branch, '5.1');
+      assert.deepEqual(b.pullChars, ['ゃ', 'ゅ']);
+      assert.equal(b.pullBaseEm, 2);
+    } finally {
+      applyPunctPreset('default');
+    }
+  });
+
+  it('严格：抽 っ 不收半角，基数 1；。っ 接缝不扣连写', function () {
+    applyPunctPreset('jis-strict');
+    try {
+      var b = computeLineEndBases(['漢'], ['っ', 'た']);
+      assert.equal(b.branch, '5.1');
+      assert.deepEqual(b.pullChars, ['っ']);
+      assert.equal(comboDeductionEm('。', 'っ'), 0);
+      assert.equal(b.pullBaseEm, 1);
+      var afterStop = computeLineEndBases(['文', '。'], ['っ', 'た']);
+      assert.equal(afterStop.pullBaseEm, 1);
+    } finally {
+      applyPunctPreset('default');
+    }
+  });
+
+  it('严格：抽 っ。 末字收半角', function () {
+    applyPunctPreset('jis-strict');
+    try {
+      var b = computeLineEndBases(['漢'], ['っ', '。', '下']);
+      assert.equal(b.branch, '5.1');
+      assert.deepEqual(b.pullChars, ['っ', '。']);
+      assert.equal(b.pullBaseEm, 1.5);
+    } finally {
+      applyPunctPreset('default');
+    }
+  });
+
+  it('严格：本行尾 っ 再加前面那个可行头的字一起推', function () {
+    applyPunctPreset('jis-strict');
+    try {
+      assert.deepEqual(collectPush51(['言', 'っ']), ['言', 'っ']);
+      assert.deepEqual(collectPush51(['本', '文']), ['文']);
+      var tail = computeLineEndBases(['言', 'っ'], ['っ', 'た']);
+      assert.equal(tail.branch, '5.1');
+      assert.deepEqual(tail.pullChars, ['っ']);
+      assert.deepEqual(tail.pushChars, ['言', 'っ']);
+      assert.equal(tail.pullBaseEm, 1);
+      assert.equal(tail.pushBaseEm, 2);
+      var okEnd = computeLineEndBases(['本', '文'], ['っ', 'た']);
+      assert.deepEqual(okEnd.pushChars, ['文']);
+      assert.equal(okEnd.pushBaseEm, 1);
+    } finally {
+      applyPunctPreset('default');
+    }
   });
 });

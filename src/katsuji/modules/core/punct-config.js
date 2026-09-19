@@ -5,11 +5,10 @@ import {
   DEFAULT_GAP_AFTER,
   CENTER_ALIGN_STOPS,
   CENTER_ALIGN_FIXED,
+  DEFAULT_TWO_EM_KEEP,
+  DEFAULT_NO_LINE_START,
   rebuildPunctSets,
 } from '../text/punctuation-rules.js';
-
-/** JIS 严格：叠字符号、假名叠字符号、小假名、片假名长音 → 3 类 */
-var JIS_STRICT_GAP_NONE_ADD = '々〻ゝゞヽヾーぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮ';
 
 /** 竖排国标九字 U+FE10–FE18（CJK 竖排标点形） */
 var VERTICAL_GAP_AFTER_ADD = '\uFE10\uFE11\uFE12\uFE18';
@@ -32,8 +31,6 @@ export function resolvePunctStrings(cfg) {
   var gapNone = DEFAULT_GAP_NONE;
   var gapAfter = DEFAULT_GAP_AFTER;
 
-  if (cfg.jisStrict) gapNone += JIS_STRICT_GAP_NONE_ADD;
-
   if (cfg.vertical) {
     gapAfter = removeChars(gapAfter, '？！');
     gapNone += '？！' + VERTICAL_GAP_NONE_ADD;
@@ -54,6 +51,8 @@ export function resolvePunctStrings(cfg) {
     gapAfter: gapAfter,
     centerStops: centerStops,
     centerFixed: centerFixed,
+    twoEmKeep: DEFAULT_TWO_EM_KEEP,
+    noLineStart: cfg.jisStrict ? DEFAULT_NO_LINE_START : '',
   };
 }
 
@@ -68,7 +67,7 @@ export const punctConfig = {
 
 function applyResolvedPunct() {
   var s = resolvePunctStrings(punctConfig);
-  rebuildPunctSets(s.gapBefore, s.gapNone, s.gapAfter, s.centerStops, s.centerFixed);
+  rebuildPunctSets(s.gapBefore, s.gapNone, s.gapAfter, s.centerStops, s.centerFixed, s.twoEmKeep, s.noLineStart);
 }
 
 export function mergePunctConfig(overrides) {

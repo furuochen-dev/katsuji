@@ -2,7 +2,7 @@
 import { mergeHangConfig } from '../core/config.js';
 import { resetGapStyles, resetAllGapStyles, restoreMissingGaps } from './preprocess/segmenter.js';
 import { unwrapHalfPunctInBlock, unwrapNoneRuns } from '../core/punct-wrap.js';
-import { glueAdjacentNonePunct } from './preprocess/combo.js';
+import { glueTwoEmKeepPairs } from './preprocess/combo.js';
 import { relaxBuiltinLineBreak } from './preprocess/line-break.js';
 import { defaultRoot } from '../env.js';
 import { buildBlockLayout } from '../measure/line-width.js';
@@ -38,7 +38,7 @@ function prepareBlock(block, hangingPunctuation) {
   resetGapStyles(block);
   unwrapHalfPunctInBlock(block);
   restoreMissingGaps(block);
-  glueAdjacentNonePunct(block);
+  glueTwoEmKeepPairs(block);
   applyHangGutter(block, hangingPunctuation);
 }
 

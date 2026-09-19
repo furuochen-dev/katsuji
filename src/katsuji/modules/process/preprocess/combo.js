@@ -2,7 +2,7 @@
 import { defaultRoot, getDocument } from '../../env.js';
 import { flattenParagraph, findLineFirstCharIndices, lineItemBounds } from '../../measure/paragraph-items.js';
 import { wrapCharAsHalfPunct, wrapCharAsLineStartOpen, charItemIsHalfPunctWrapped } from '../../core/punct-wrap.js';
-import { punctGapClass, isSpaceOnEdgeStart } from '../../text/punctuation-rules.js';
+import { isSpaceOnEdgeStart, twoEmKeepRuns } from '../../text/punctuation-rules.js';
 import { comboPairKind, isLayoutWhitespace } from '../typeset-rules.js';
 
 function wrapNoneRunSameNode(node, startOff, endOff) {
@@ -22,32 +22,30 @@ function wrapNoneRunSameNode(node, startOff, endOff) {
   node.parentNode.replaceChild(frag, node);
 }
 
-/** 连续 `两侧无空`（如 ……）绑在一起，中间不折行 */
-export function glueAdjacentNonePunct(block) {
+/** `两字一体` 成对绑在一起，中间不折行。相邻无空不一律绑 */
+export function glueTwoEmKeepPairs(block) {
   var guard = 0;
   while (guard++ < 32) {
     var items = flattenParagraph(block);
-    var run = null;
-    var i = 0;
-    while (i < items.length) {
-      if (items[i].type !== 'char' || punctGapClass(items[i].ch) !== 'none') {
-        i += 1;
-        continue;
-      }
-      var start = i;
-      i += 1;
-      while (i < items.length && items[i].type === 'char' && punctGapClass(items[i].ch) === 'none') {
-        i += 1;
-      }
-      if (i - start < 2) continue;
-      var a = items[start];
-      var b = items[i - 1];
-      if (!a || !b || a.node !== b.node || !a.node.parentNode) continue;
-      run = { node: a.node, startOff: a.offset, endOff: b.offset };
+    var found = null;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type !== 'char') continue;
+      var node = items[i].node;
+      if (!node || !node.nodeValue || !node.parentNode) continue;
+      var par = node.parentElement;
+      if (par && par.getAttribute('data-ts-none-run') === '1') continue;
+      var runs = twoEmKeepRuns(node.nodeValue);
+      if (!runs.length) continue;
+      found = { node: node, startOff: runs[0].start, endOff: runs[0].end };
+      break;
     }
-    if (!run) return;
-    wrapNoneRunSameNode(run.node, run.startOff, run.endOff);
+    if (!found) return;
+    wrapNoneRunSameNode(found.node, found.startOff, found.endOff);
   }
+}
+
+export function glueAdjacentNonePunct(block) {
+  glueTwoEmKeepPairs(block);
 }
 
 /** 收半角落左墨；前有空和行首顶格一样，盒里左移半字只露右墨。 */
@@ -151,7 +149,7 @@ export function applyComboSymbolsOnLine(layout, L) {
 }
 
 export function applyComboSymbolsBlock(block, limit) {
-  glueAdjacentNonePunct(block);
+  glueTwoEmKeepPairs(block);
   void block.offsetHeight;
   var applied = [];
   var guard = 0;

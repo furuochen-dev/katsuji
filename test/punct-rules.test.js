@@ -6,15 +6,19 @@ import {
   isSpaceOnEdgeEnd,
   isIllegalOnEdgeStart,
   isIllegalOnEdgeEnd,
+  isNoLineStartChar,
+  isPunctuationChar,
   DEFAULT_GAP_BEFORE,
   DEFAULT_GAP_AFTER,
   DEFAULT_GAP_NONE,
+  DEFAULT_NO_LINE_START,
 } from '../src/katsuji/modules/text/punctuation-rules.js';
 import { applyPunctPreset } from '../src/katsuji/modules/core/punct-config.js';
 import {
   gapInsertSide,
   isCannotLineStart,
   isSpaceAfter,
+  comboPairKind,
 } from '../src/katsuji/modules/process/typeset-rules.js';
 
 function eachChar(str, fn) {
@@ -54,12 +58,13 @@ describe('标点属性', function () {
     });
   });
 
-  it('不能在行头就是后有空 + 两侧无空，不是第三张表', function () {
+  it('不能在行头是后有空 + 两侧无空 + 行头不可；默认行头不可为空', function () {
     eachChar(DEFAULT_GAP_AFTER + DEFAULT_GAP_NONE, function (ch) {
       assert.equal(isCannotLineStart(ch), true, ch);
     });
-    eachChar(DEFAULT_GAP_BEFORE + '汉A1', function (ch) {
+    eachChar(DEFAULT_GAP_BEFORE + '汉A1っーヵ', function (ch) {
       assert.equal(isCannotLineStart(ch), false, ch);
+      assert.equal(isNoLineStartChar(ch), false, ch);
     });
   });
 
@@ -104,13 +109,22 @@ describe('标点属性', function () {
 });
 
 describe('标点预设', function () {
-  it('jis-strict 把小假名、长音并进两侧无空', function () {
+  it('jis-strict 只填行头不可，不进两侧无空，不是标点', function () {
     applyPunctPreset('jis-strict');
     try {
-      assert.equal(punctGapClass('っ'), 'none');
-      assert.equal(punctGapClass('ー'), 'none');
-      assert.equal(isCannotLineStart('っ'), true);
+      eachChar(DEFAULT_NO_LINE_START, function (ch) {
+        assert.equal(isNoLineStartChar(ch), true, ch);
+        assert.equal(isCannotLineStart(ch), true, ch);
+        assert.equal(punctGapClass(ch), null, ch);
+        assert.equal(isPunctuationChar(ch), false, ch);
+        assert.equal(gapInsertSide(ch), null, ch);
+      });
       assert.equal(punctGapClass('。'), 'after');
+      assert.equal(punctGapClass('…'), 'none');
+      assert.equal(comboPairKind('。', 'っ'), null);
+      assert.equal(isNoLineStartChar('ヵ'), true);
+      assert.equal(isNoLineStartChar('ヶ'), true);
+      assert.equal(isNoLineStartChar('ヾ'), true);
     } finally {
       applyPunctPreset('default');
     }

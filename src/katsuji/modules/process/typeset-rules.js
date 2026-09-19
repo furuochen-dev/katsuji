@@ -44,7 +44,7 @@ export function lastSignificantChar(chars) {
   return null;
 }
 
-/** `不能在行头` = `后有空` + `两侧无空` */
+/** `不能在行头` = `后有空` ∪ `两侧无空` ∪ `行头不可` */
 export function isCannotLineStart(ch) {
   return isIllegalOnEdgeStart(ch);
 }

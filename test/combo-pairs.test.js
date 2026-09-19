@@ -36,7 +36,7 @@ describe('第 4 步 连写判定', function () {
     assert.equal(comboPairKind('。', '…'), 'single');
   });
 
-  it('两侧无空 + 两侧无空：…… 不成对（中间本来也没缝，只绑不折）', function () {
+  it('两侧无空 + 两侧无空：…… / —— 不是收半角成对（两字一体另绑）', function () {
     assert.equal(comboPairKind('…', '…'), null);
     assert.equal(comboPairKind('—', '—'), null);
     assert.equal(comboDeductionEm('…', '…'), 0);

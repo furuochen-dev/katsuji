@@ -2,7 +2,7 @@
 import { buildBlockLayout } from '../measure/line-width.js';
 import { hangConfig } from '../core/config.js';
 import { trySpaceOnEdgeStart } from './postprocess/space-on-edge.js';
-import { glueAdjacentNonePunct, applyComboSymbolsOnLine } from './preprocess/combo.js';
+import { glueTwoEmKeepPairs, applyComboSymbolsOnLine } from './preprocess/combo.js';
 import { applyLineEndOnLine, snapshotLinePair } from './line-end.js';
 import { lineStepPlan, resolveHangingPunctuation } from './typeset-rules.js';
 import { punctHit } from './postprocess/edge-shared.js';
@@ -64,7 +64,7 @@ export function processLine(block, L, hangOpts) {
 
   var preCombo = null;
   if (plan.step4) {
-    glueAdjacentNonePunct(block);
+    glueTwoEmKeepPairs(block);
     layout = buildBlockLayout(block) || layout;
     if (layout && L + 1 < layout.heads.length) preCombo = snapshotLinePair(layout, L);
     var comboPass = 0;

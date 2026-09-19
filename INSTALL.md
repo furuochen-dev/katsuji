@@ -183,16 +183,16 @@ Katsuji.applyHangAvoidance(root, {
 
 ### 标点分类（`setPunctConfig` / `applyPunctPreset`）
 
-三类标点决定 `ts-gap` 插入与禁则（`before` 左空 / `after` 右空 / `none` 无空）：
+三类标点决定 `ts-gap` 插入（`before` 左空 / `after` 右空 / `none` 无空）。行首禁则另加一张 `行头不可` 表。
 
-- **行首禁则**：`after`（右空）与 `none`（无空）不得出现在行首
+- **行首禁则**：`after`、`none`，以及 `jisStrict` 填入的 `行头不可`（小假名、长音、叠字）
 - **行尾禁则**：`before`（左空）不得出现在行尾
 
 **须在 `Katsuji.apply` 之前配置**；修改后需重新 `apply` 与 `applyHangAvoidance`。
 
 ```js
 Katsuji.setPunctConfig({
-  jisStrict: true, // JIS 严格：叠字符号、假名叠字、小假名、片假名长音 ー → none
+  jisStrict: true, // JIS 严格：小假名、长音、叠字 → 行头不可（不进两侧无空）
   vertical: true,  // 竖排：！？→ none；国标竖排九字 U+FE10–FE18 入对应类
   punctAlign: 'center', // 默认 'corner'。置中字体：点号两边插缝、可挂、不收半角；？！固定 1em；成对仍连写。须在 apply 前设置
   gapBefore: null, // 传入字符串则整类替换（null 用预设叠加后的默认）
