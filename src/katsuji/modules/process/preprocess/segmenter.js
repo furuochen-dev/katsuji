@@ -1,6 +1,6 @@
 /** 按禁则在标点外侧插入 ts-gap，把段落切成 char / gap 可遍历结构 */
 import { getDocument, defaultRoot } from '../../env.js';
-import { shouldSkipTextParent } from '../../core/dom-util.js';
+import { shouldSkipSegmenterParent, isInsideRuby } from '../../core/dom-util.js';
 import { flattenParagraph } from '../../measure/paragraph-items.js';
 import { gapInsertSide } from '../typeset-rules.js';
 
@@ -11,7 +11,7 @@ function collectTextNodes(root) {
   var walker = documentRef.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
   var node;
   while ((node = walker.nextNode())) {
-    if (shouldSkipTextParent(node.parentElement)) continue;
+    if (shouldSkipSegmenterParent(node.parentElement)) continue;
     list.push(node);
   }
   return list;
@@ -141,6 +141,7 @@ function insertGapBesideChar(item, side, doc) {
 function findFirstMissingGap(items) {
   for (var i = 0; i < items.length; i++) {
     if (items[i].type !== 'char') continue;
+    if (isInsideRuby(items[i].node && items[i].node.parentElement)) continue;
     var ch = items[i].ch;
     var side = gapInsertSide(ch);
     if (side === 'after' || side === 'both') {

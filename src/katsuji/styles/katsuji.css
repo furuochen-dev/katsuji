@@ -23,3 +23,12 @@ span[data-ts-line-start-nowrap] {
   white-space: nowrap;
   vertical-align: baseline;
 }
+
+/* 容器 line-break:anywhere 不进 ruby，断行交还给 UA */
+[data-ts-relax="1"] ruby,
+[data-ts-relax="1"] rt,
+[data-ts-relax="1"] rp,
+[data-ts-relax="1"] rtc {
+  line-break: auto;
+  overflow-wrap: normal;
+}

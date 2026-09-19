@@ -185,6 +185,27 @@ describe('5.2 基数（撑行）', function () {
     assert.equal(half.pushBaseEm, 1);
   });
 
+  it('撑行改推：行尾句读已收半角，右挂仍加推出 0.5', function () {
+    var none = computeLineEndBases(['妈', '，', '『'], ['利'], {
+      newEndAlreadyHalf: true,
+      hangRight: 'none',
+    });
+    var stops = computeLineEndBases(['妈', '，', '『'], ['利'], {
+      newEndAlreadyHalf: true,
+      hangRight: 'stops',
+    });
+    assert.deepEqual(stops.pushChars, ['『']);
+    assert.equal(none.pushBaseEm, 1);
+    assert.equal(stops.pushBaseEm, 1.5);
+  });
+
+  it('撑行不推字：行尾逗号可挂，基数 1', function () {
+    var b = computeLineEndBases(['妈', '妈', '，'], ['『', '利'], { hangRight: 'stops' });
+    assert.equal(b.branch, '5.2');
+    assert.deepEqual(b.pushChars, []);
+    assert.equal(b.pushBaseEm, 1);
+  });
+
   it('行尾是汉字：推出基数 0，推出量就是行宽−合', function () {
     var b = computeLineEndBases(['文', '本', '汉'], ['字']);
     assert.deepEqual(b.pushChars, []);

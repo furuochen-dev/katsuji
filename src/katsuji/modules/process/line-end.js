@@ -190,7 +190,6 @@ export function applyLineEndOnLine(layout, L, hangOpts, lineCharsHint) {
   var wrapNewEnd =
     (!margin || margin.usedPushFallback) &&
     newEndIdx >= 0 &&
-    !charItemIsHalfPunctWrapped(items[newEndIdx]) &&
     shouldWrapMovedLastHalf([items[newEndIdx].ch], hp.hangRight);
 
   if (!margin && !wrapNewEnd) {

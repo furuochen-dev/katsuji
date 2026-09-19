@@ -1,5 +1,6 @@
 /** 半角标点 span：包/拆 ts-half-punct、ts-line-end-half */
 import { getDocument } from '../env.js';
+import { isInsideRuby } from './dom-util.js';
 import { isHalfPunct, isCenterStop } from '../text/punctuation-rules.js';
 import { isHangable } from '../process/typeset-rules.js';
 
@@ -109,6 +110,7 @@ function wrapCharInHalfSpan(item, className, dataAttr, extraStyle) {
   var offset = item.offset;
   var ch = item.ch;
   if (!node || !node.parentNode) return false;
+  if (isInsideRuby(node.parentElement)) return false;
   if (closestNamedSpan(node, className)) return false;
 
   var doc = getDocument(node);
@@ -210,6 +212,8 @@ export function wrapCharAsCenterHang(item) {
 
 export function wrapLineEndPunct(item, hangRight) {
   if (!item || item.type !== 'char') return null;
+  var existing = charItemHalfPunctSpan(item);
+  if (existing) return existing;
   if (isCenterStop(item.ch)) return wrapCharAsCenterHang(item) || null;
   if (isHangable(item.ch, hangRight) || isHalfPunct(item.ch)) {
     return wrapCharAsHalfPunct(item) || null;
@@ -246,7 +250,11 @@ function closestNamedSpan(node, className) {
   return null;
 }
 
+export function charItemHalfPunctSpan(item) {
+  if (!item || item.type !== 'char') return null;
+  return closestNamedSpan(item.node, 'ts-half-punct');
+}
+
 export function charItemIsHalfPunctWrapped(item) {
-  if (!item || item.type !== 'char') return false;
-  return !!closestNamedSpan(item.node, 'ts-half-punct');
+  return !!charItemHalfPunctSpan(item);
 }

@@ -161,6 +161,27 @@
         /* 允许在任意字间断行，便于出现「行首标点」以验证避头（正式环境可去掉） */
         overflow-wrap: anywhere;
       }
+      #content[data-ts-relax="1"] ruby,
+      #content[data-ts-relax="1"] rt,
+      #content[data-ts-relax="1"] rp,
+      #content[data-ts-relax="1"] rtc {
+        line-break: auto;
+        overflow-wrap: normal;
+      }
+      /* 着重号：字下圆点。专名号：字下直线。都走 HTML/CSS，不进合 */
+      #content .emphasis {
+        font-style: normal;
+        text-emphasis: filled dot;
+        text-emphasis-position: under;
+        -webkit-text-emphasis: filled dot;
+        -webkit-text-emphasis-position: under;
+      }
+      #content .proper-name {
+        text-decoration: underline;
+        text-underline-offset: 0.12em;
+        text-decoration-thickness: 1px;
+        text-decoration-skip-ink: none;
+      }
       #content p:last-child {
         margin-bottom: 0;
       }
@@ -274,13 +295,16 @@
       <div id="line-cursors" aria-hidden="true"></div>
       <article id="content">
       <p>
-        「请相信我，亲爱的先生：在大英帝国中，再也没有比我更衷心支持与母国联合的人了。」但以造物主之名，我宁愿死去，也不会接受如今英国议会所提之条件——那些条件既苛且乱：增税、驻军、封锁港口、禁止西迁……无一不是把殖民地当作附属。有人劝他：「何必如此决绝？」他答：「我相信这正是美洲的共同心声。」又补了一句：「若连这句话也不敢说，还谈什么自由？」
+        「请相信我，亲爱的先生：在<span class="proper-name">大英帝国</span>中，再也没有比我更衷心支持与母国联合的人了。」但以造物主之名，我宁愿死去，也不会接受如今<span class="proper-name">英国议会</span>所提之条件——那些条件既苛且乱：增税、驻军、封锁港口、禁止西迁……无一不是把殖民地当作附属。有人劝他：「何必如此<span class="emphasis">决绝</span>？」他答：「我相信这正是<span class="proper-name">美洲</span>的<span class="emphasis">共同心声</span>。」又补了一句：「若连这句话也不敢说，还谈什么自由？」
       </p>
       <p>
-        （第三次联席会，含预算）议题有三项：「进度汇报、风险排查、以及下阶段计划（含印刷、纸张、装订）」。请准时参加！会上有人提起《红楼梦》，说它是一部奇书，而「脂砚斋」批语更让读者着迷：你怎么看？另有人反问：「批语是作者自拟，还是他人捉刀？」争论未决，主席只得敲槌：「先记下来，会后再议。」散会时已近黄昏，走廊里还能听见：「《石头记》……脂批……真伪……」
+        （第三次联席会，含预算）议题有三项：「进度汇报、风险排查、以及下阶段计划（含印刷、纸张、装订）」。请准时参加！会上有人提起《红楼梦》，说它是一部奇书，而「<span class="proper-name">脂砚斋</span>」批语更让读者着迷：你怎么看？另有人反问：「批语是作者自拟，还是他人捉刀？」争论未决，主席只得敲槌：「先记下来，会后再议。」散会时已近黄昏，走廊里还能听见：「《石头记》……脂批……<span class="emphasis">真伪</span>……」
       </p>
       <p>
-        《汉书》有云：「天下熙熙，皆为利来；天下攘攘，皆为利往。」这话放在今天，也并不过时。书店里摆着《史记》《汉书》《后汉书》，旁边却是翻译小说、旅行手册、食谱……收银处贴着告示：「满百减十；学生证再九折。」有个孩子问：「妈妈，『利』是什么？」母亲想了想：「就是你想要、又不肯放手的东西。」孩子「哦」了一声，又问：「那『往』呢？」
+        《汉书》有云：「天下熙熙，皆为利来；天下攘攘，皆为利往。」这话放在今天，也并不过时。书店里摆着《史记》《汉书》《后汉书》，旁边却是翻译小说、旅行手册、食谱……收银处贴着告示：「满百减十；学生证再九折。」有个孩子问：「妈妈，『<span class="emphasis">利</span>』是什么？」母亲想了想：「就是你想要、又不肯放手的东西。」孩子「哦」了一声，又问：「那『往』呢？」
+      </p>
+      <p>
+        注音：<ruby>漢<rt>ㄏㄢˋ</rt></ruby><ruby>字<rt>ㄗˋ</rt></ruby>要能断行。振り：<ruby>東京<rt>とうきょう</rt></ruby>の<ruby>漢字<rt>かんじ</rt></ruby>は<ruby>美しい<rt>うつくしい</rt></ruby>と言われ、組 ruby の<ruby>東京都庁<rt>とうきょうとちょう</rt></ruby>まで歩いた。「<ruby>脂硯齋<rt>しけんさい</rt></ruby>」批語と、括弧付き「<ruby>漢<rt>かん</rt></ruby>」も試す。
       </p>
       </article>
     </div>

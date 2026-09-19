@@ -26,6 +26,16 @@ async function setParagraph(page, text) {
   }, text);
 }
 
+async function setHtml(page, html) {
+  await page.evaluate((h) => {
+    var host = document.getElementById('host');
+    host.innerHTML = '';
+    var p = document.createElement('p');
+    p.innerHTML = h;
+    host.appendChild(p);
+  }, html);
+}
+
 function lineTexts(page) {
   return page.evaluate(() => {
     var p = document.querySelector('#host p');
@@ -797,6 +807,39 @@ test.describe('第 5 步 行尾 / 段末', function () {
       expect(row.wrapped).toBe(true);
     });
   });
+
+  test('撑行推出：连写已收的行尾逗号仍挂出去', async function ({ page }) {
+    await openHost(page, 22);
+    await setParagraph(
+      page,
+      '减十；学生证再九折。」有个孩子问：「妈妈，『利』是什么？」母亲想了想：「就是你想要、又不肯放手的东西。」孩子「哦」了一声，又问：「那『往』呢？」后面还有汉字汉字汉字汉字汉字汉字汉字汉字汉字汉字',
+    );
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangLeftIndent: true, hangLeft: false, hangRight: 'stops' },
+      });
+      var lines = window.Katsuji.measureBlockVisualLines(p).lines;
+      var mama = null;
+      for (var i = 0; i < lines.length; i++) {
+        if (/妈妈，$/.test(lines[i].text || '')) mama = lines[i].text;
+      }
+      var hung = [];
+      var halves = p.querySelectorAll('span.ts-half-punct');
+      for (var h = 0; h < halves.length; h++) {
+        if ((halves[h].textContent || '') !== '，') continue;
+        hung.push({
+          hang: halves[h].getAttribute('data-ts-hang-end') === '1',
+          mr: halves[h].style.marginRight,
+        });
+      }
+      return { mama: mama, hung: hung, lines: lines.map(function (l) { return l.text; }) };
+    });
+    expect(info.mama).toBeTruthy();
+    expect(info.hung.some(function (row) { return row.hang && row.mr === '-0.5em'; })).toBe(true);
+  });
 });
 
 test.describe('步进', function () {
@@ -1400,5 +1443,75 @@ test.describe('置中标点', function () {
     expect(info.maxPad).toBeLessThan(0.6);
     expect(info.hasDao).toBe(true);
     expect(info.brokeAtNi).toBe(false);
+  });
+});
+
+test.describe('Ruby 适配：不扫注音、不切 ruby', function () {
+  test('flatten 只有底，没有 rt；ruby 里不插缝', async function ({ page }) {
+    await openHost(page, 20);
+    await setHtml(page, '甲<ruby>漢字<rt>ㄏㄢˋㄗˋ</rt></ruby>乙');
+    await page.evaluate(() => window.Katsuji.apply(document.getElementById('host')));
+    var info = await page.evaluate(() => {
+      var p = document.querySelector('#host p');
+      var items = window.Katsuji.flattenParagraph(p);
+      var text = items
+        .filter(function (it) {
+          return it.type === 'char';
+        })
+        .map(function (it) {
+          return it.ch;
+        })
+        .join('');
+      var ruby = p.querySelector('ruby');
+      return {
+        text: text,
+        rubyGaps: ruby ? ruby.querySelectorAll('span.ts-gap').length : -1,
+        rtGaps: p.querySelector('rt') ? p.querySelector('rt').querySelectorAll('span.ts-gap').length : -1,
+      };
+    });
+    expect(info.text).toBe('甲漢字乙');
+    expect(info.rubyGaps).toBe(0);
+    expect(info.rtGaps).toBe(0);
+  });
+
+  test('挂完不把注音认成新行；ruby 里不包半角盒', async function ({ page }) {
+    await openHost(page, 20);
+    await setHtml(page, '前<ruby>「漢」<rt>かん</rt></ruby>后。');
+    await page.evaluate(() => {
+      window.Katsuji.apply(document.getElementById('host'));
+      window.Katsuji.applyHangAvoidance(document.getElementById('host'), {
+        hangingPunctuation: { hangRight: 'stops', hangLeftIndent: false, hangLeft: false },
+      });
+    });
+    var info = await page.evaluate(() => {
+      var p = document.querySelector('#host p');
+      var layout = window.Katsuji.buildBlockLayout(p);
+      var lines = [];
+      if (layout) {
+        for (var i = 0; i < layout.heads.length; i++) {
+          var r = window.Katsuji.lineItemBounds(layout.items, layout.heads, i);
+          var lc = window.Katsuji.lineCharsFromItems(layout.items, r.startIndex, r.endIndex);
+          lines.push(lc.text);
+        }
+      }
+      var ruby = p.querySelector('ruby');
+      var style = document.getElementById('ts-ruby-skip-line-break');
+      return {
+        lines: lines,
+        lineN: lines.length,
+        joined: lines.join(''),
+        rubyGaps: ruby ? ruby.querySelectorAll('span.ts-gap').length : -1,
+        rubyWraps: ruby
+          ? ruby.querySelectorAll('span.ts-half-punct, span.ts-line-end-half').length
+          : -1,
+        hasSkipStyle: !!(style && document.getElementById('host').getAttribute('data-ts-relax') === '1'),
+      };
+    });
+    expect(info.hasSkipStyle).toBe(true);
+    expect(info.lineN).toBeLessThan(4);
+    expect(info.joined.indexOf('かん')).toBe(-1);
+    expect(info.joined.indexOf('漢')).toBeGreaterThan(-1);
+    expect(info.rubyGaps).toBe(0);
+    expect(info.rubyWraps).toBe(0);
   });
 });

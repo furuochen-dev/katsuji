@@ -342,7 +342,7 @@ export function charBeforeSuffix(thisLineChars, suffixChars) {
 /**
  * @param {string[]} thisLineChars
  * @param {string[]} nextLineChars
- * @param {{ newEndAlreadyHalf?: boolean, hangRight?: string }} [opts] 推完后的新行尾若已是半角盒，合里已减过，基数不再加
+ * @param {{ newEndAlreadyHalf?: boolean, hangRight?: string }} [opts] 推完后的新行尾若已是半角盒，合里不再加包盒；可挂仍加推出 0.5
  */
 export function computeLineEndBases(thisLineChars, nextLineChars, opts) {
   opts = opts || {};
@@ -360,11 +360,15 @@ export function computeLineEndBases(thisLineChars, nextLineChars, opts) {
   }
 
   function wrapNewEndOpts(newEndCh) {
-    var wrap = !!(newEndCh && shouldWrapMovedLastHalf([newEndCh], hangRight) && !alreadyHalf);
-    return {
-      wrapNewEndHalf: wrap,
-      wrapNewEndEm: wrap ? wrapHalfEm(newEndCh, hangRight) : 0,
-    };
+    if (!newEndCh || !shouldWrapMovedLastHalf([newEndCh], hangRight)) {
+      return { wrapNewEndHalf: false, wrapNewEndEm: 0 };
+    }
+    var full = wrapHalfEm(newEndCh, hangRight);
+    if (alreadyHalf) {
+      var extra = isHangable(newEndCh, hangRight) ? Math.max(0, full - 0.5) : 0;
+      return { wrapNewEndHalf: extra > 0, wrapNewEndEm: extra };
+    }
+    return { wrapNewEndHalf: true, wrapNewEndEm: full };
   }
 
   if (nextLineStartsForbidden(nextLineChars)) {

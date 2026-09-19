@@ -2,6 +2,7 @@
 import { defaultRoot, getDocument } from '../../env.js';
 import { flattenParagraph, findLineFirstCharIndices, lineItemBounds } from '../../measure/paragraph-items.js';
 import { wrapCharAsHalfPunct, wrapCharAsLineStartOpen, charItemIsHalfPunctWrapped } from '../../core/punct-wrap.js';
+import { isInsideRuby } from '../../core/dom-util.js';
 import { isSpaceOnEdgeStart, twoEmKeepRuns } from '../../text/punctuation-rules.js';
 import { comboPairKind, isLayoutWhitespace } from '../typeset-rules.js';
 
@@ -34,6 +35,7 @@ export function glueTwoEmKeepPairs(block) {
       if (!node || !node.nodeValue || !node.parentNode) continue;
       var par = node.parentElement;
       if (par && par.getAttribute('data-ts-none-run') === '1') continue;
+      if (isInsideRuby(par)) continue;
       var runs = twoEmKeepRuns(node.nodeValue);
       if (!runs.length) continue;
       found = { node: node, startOff: runs[0].start, endOff: runs[0].end };

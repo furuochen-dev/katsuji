@@ -15,8 +15,9 @@ export function flattenParagraph(block) {
       return;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
-    if (node.tagName === 'SCRIPT' || node.tagName === 'STYLE' || node.tagName === 'TEXTAREA' || node.tagName === 'NOSCRIPT')
-      return;
+    var tag = node.tagName;
+    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEXTAREA' || tag === 'NOSCRIPT') return;
+    if (tag === 'RT' || tag === 'RP' || tag === 'RTC') return;
     if (node.classList && node.classList.contains('ts-gap')) {
       items.push({ type: 'gap', el: node });
       return;
