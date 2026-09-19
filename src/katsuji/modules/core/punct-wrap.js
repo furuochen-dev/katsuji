@@ -1,6 +1,7 @@
 /** 半角标点 span：包/拆 ts-half-punct、ts-line-end-half */
 import { getDocument } from '../env.js';
-import { AFTER_CHARS } from '../text/punctuation-rules.js';
+import { isHalfPunct, isCenterStop } from '../text/punctuation-rules.js';
+import { isHangable } from '../process/typeset-rules.js';
 
 function unwrapHalfSpansInBlock(block, selector) {
   var halfs = block.querySelectorAll(selector);
@@ -156,6 +157,7 @@ export function wrapCharAsHalfPunct(item) {
     textIndent: '0',
     verticalAlign: 'baseline',
     overflow: 'visible',
+    minWidth: '0',
     boxSizing: 'content-box',
   });
 }
@@ -175,7 +177,7 @@ export function wrapTrailingAfterPunctOnLine(items, startIndex, endExcl) {
     if (items[i].type !== 'char') continue;
     var ch = items[i].ch;
     if (isLayoutWhitespace(ch)) continue;
-    if (!AFTER_CHARS[ch]) break;
+    if (!isHalfPunct(ch)) break;
     if (last < 0) last = i;
     if ('」』）】｝〉》)]}'.indexOf(ch) !== -1) closer = i;
   }
@@ -185,6 +187,36 @@ export function wrapTrailingAfterPunctOnLine(items, startIndex, endExcl) {
 }
 
 /** 行首开括号：0.5em 盒与行尾半角相同；里边只拉 margin，露出右边的墨 */
+/** 挂置中点号：0.5em 盒，字居中，再由调用方推出 0.5em */
+export function wrapCharAsCenterHang(item) {
+  var span = wrapCharInHalfSpan(item, 'ts-half-punct', 'data-ts-center-hang', {
+    display: 'inline-block',
+    width: '0.5em',
+    textIndent: '0',
+    verticalAlign: 'baseline',
+    overflow: 'visible',
+    minWidth: '0',
+    boxSizing: 'content-box',
+  });
+  if (!span) return span;
+  var inner = span.ownerDocument.createElement('span');
+  inner.setAttribute('data-ts-center-hang-glyph', '1');
+  inner.style.marginLeft = '-0.25em';
+  inner.textContent = span.textContent;
+  span.textContent = '';
+  span.appendChild(inner);
+  return span;
+}
+
+export function wrapLineEndPunct(item, hangRight) {
+  if (!item || item.type !== 'char') return null;
+  if (isCenterStop(item.ch)) return wrapCharAsCenterHang(item) || null;
+  if (isHangable(item.ch, hangRight) || isHalfPunct(item.ch)) {
+    return wrapCharAsHalfPunct(item) || null;
+  }
+  return null;
+}
+
 export function wrapCharAsLineStartOpen(item) {
   var span = wrapCharInHalfSpan(item, 'ts-half-punct', 'data-ts-line-start-open', {
     display: 'inline-block',
@@ -192,6 +224,7 @@ export function wrapCharAsLineStartOpen(item) {
     textIndent: '0',
     verticalAlign: 'baseline',
     overflow: 'visible',
+    minWidth: '0',
     boxSizing: 'content-box',
   });
   if (!span) return span;

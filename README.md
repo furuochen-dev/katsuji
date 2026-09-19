@@ -8,7 +8,7 @@
 
 **路线/计划图**： [ROADMAP.md](ROADMAP.md)
 
-**排版过程**： [TYPESET.md](TYPESET.md)
+**排版过程**： [TYPESET.md](process/TYPESET.md) · [PUNCT.md](process/PUNCT.md) · [HANG.md](process/HANG.md) · [MEASURE.md](process/MEASURE.md)
 
 ## 简介:
 

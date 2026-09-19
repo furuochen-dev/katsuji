@@ -3,7 +3,11 @@ import {
   punctGapClass,
   isIllegalOnEdgeStart,
   isSpaceOnEdgeStart,
-  AFTER_CHARS,
+  isPunctuationChar,
+  isHalfPunct,
+  isCenterStop,
+  isCenterFixed,
+  hasCenterFixedChars,
   DEFAULT_HANGABLE_STOPS,
 } from '../text/punctuation-rules.js';
 
@@ -46,7 +50,7 @@ export function isCannotLineStart(ch) {
 }
 
 export function isSpaceAfter(ch) {
-  return AFTER_CHARS[ch] === true;
+  return isHalfPunct(ch);
 }
 
 export function isHangableStop(ch) {
@@ -59,13 +63,24 @@ export function resolveHangingPunctuation(raw) {
     return { hangLeft: false, hangLeftIndent: false, hangRight: 'none' };
   }
   if (raw === true) {
-    return { hangLeft: false, hangLeftIndent: true, hangRight: 'stops' };
+    return {
+      hangLeft: false,
+      hangLeftIndent: true,
+      hangRight: hasCenterFixedChars() ? 'exceptCenterFixed' : 'stops',
+    };
   }
   if (typeof raw !== 'object') {
     return { hangLeft: false, hangLeftIndent: false, hangRight: 'none' };
   }
   var hangRight = raw.hangRight;
-  if (hangRight !== 'stops' && hangRight !== 'all' && hangRight !== 'none') hangRight = 'none';
+  if (
+    hangRight !== 'stops' &&
+    hangRight !== 'all' &&
+    hangRight !== 'none' &&
+    hangRight !== 'exceptCenterFixed'
+  ) {
+    hangRight = 'none';
+  }
   var hangLeft = !!raw.hangLeft;
   var on = hangLeft || hangRight !== 'none' || raw.hangLeftIndent === true;
   var hangLeftIndent = raw.hangLeftIndent == null ? on : !!raw.hangLeftIndent;
@@ -80,15 +95,18 @@ export function shouldProtrudeLineStartOpen(lineIndex, indentEm, hp) {
 }
 
 export function isHangable(ch, hangRight) {
-  if (hangRight === 'all') return isSpaceAfter(ch);
   if (hangRight === 'stops') return isHangableStop(ch);
+  var after = punctGapClass(ch) === 'after';
+  if (hangRight === 'all') return after;
+  if (hangRight === 'exceptCenterFixed') return after && !isCenterFixed(ch);
   return false;
 }
 
-/** 包半角后相对未包少占的内口：可悬挂 1，只顶格 0.5 */
+/** 包半角后相对未包少占的内口：可悬挂 1，收半角 0.5 */
 export function wrapHalfEm(ch, hangRight) {
-  if (!isSpaceAfter(ch)) return 0;
-  return isHangable(ch, hangRight) ? 1 : 0.5;
+  if (isHangable(ch, hangRight)) return 1;
+  if (isHalfPunct(ch) || isCenterStop(ch)) return 0.5;
+  return 0;
 }
 
 export function hangingPadPlan(hp) {
@@ -117,8 +135,10 @@ export function lineMaxEm(contentEm, indentEm, lineIndex, hangPadEm, lineEm) {
   return em;
 }
 
-/** 第 1 步：缝插在哪一侧。none / 汉字 / 西文都不插。 */
+/** 第 1 步：缝插在哪一侧。置中固定 / none / 汉字 / 西文都不插。 */
 export function gapInsertSide(ch) {
+  if (isCenterFixed(ch) || punctGapClass(ch) === 'none') return null;
+  if (isCenterStop(ch)) return 'both';
   var cls = punctGapClass(ch);
   if (cls === 'before') return 'before';
   if (cls === 'after') return 'after';
@@ -126,12 +146,20 @@ export function gapInsertSide(ch) {
 }
 
 /**
- * 成对：`后有空` 后紧跟任意标点，或任意标点后紧跟 `前有空`。
- * @returns {null|'after-before'|'single'} after-before = 4.1，只删前一条缝
+ * 成对：收半角后紧跟标点则收左；置中点号/固定后紧跟前有空则收右。
+ * @returns {null|'after-before'|'single'|'wrap-right'}
  */
 export function comboPairKind(leftCh, rightCh) {
-  var p = punctGapClass(leftCh);
+  if (!isPunctuationChar(leftCh) || !isPunctuationChar(rightCh)) return null;
   var n = punctGapClass(rightCh);
+  if (isHalfPunct(leftCh)) {
+    if (n === 'before') return 'after-before';
+    return 'single';
+  }
+  if ((isCenterStop(leftCh) || isCenterFixed(leftCh)) && n === 'before') return 'wrap-right';
+  if ((isCenterStop(leftCh) || isCenterFixed(leftCh)) && isHalfPunct(rightCh)) return 'wrap-right';
+  if (isCenterStop(leftCh) || isCenterFixed(leftCh)) return null;
+  var p = punctGapClass(leftCh);
   if (p == null || n == null) return null;
   if (p !== 'after' && n !== 'before') return null;
   if (p === 'after' && n === 'before') return 'after-before';
@@ -285,9 +313,20 @@ export function nextLineStartsForbidden(nextLineChars) {
   return ch != null && isCannotLineStart(ch);
 }
 
-export function shouldWrapMovedLastHalf(movedChars) {
+export function shouldWrapMovedLastHalf(movedChars, hangRight) {
   if (!movedChars || !movedChars.length) return false;
-  return isSpaceAfter(movedChars[movedChars.length - 1]);
+  var ch = movedChars[movedChars.length - 1];
+  return isHangable(ch, hangRight || 'none') || isHalfPunct(ch) || isCenterStop(ch);
+}
+
+/** 行尾已包盒：后缝锁死 */
+export function shouldLockLineEndAfterGap(ch, hangRight) {
+  return shouldWrapMovedLastHalf([ch], hangRight);
+}
+
+/** 行尾已推出：前缝锁死 */
+export function shouldLockLineEndBeforeGap(ch, hangRight) {
+  return isHangable(ch, hangRight || 'none');
 }
 
 export function charBeforeSuffix(thisLineChars, suffixChars) {
@@ -313,7 +352,7 @@ export function computeLineEndBases(thisLineChars, nextLineChars, opts) {
   var hangRight = opts.hangRight || 'none';
 
   function wrapLastOpts(chars) {
-    var wrap = shouldWrapMovedLastHalf(chars);
+    var wrap = shouldWrapMovedLastHalf(chars, hangRight);
     return {
       wrapLastHalf: wrap,
       wrapLastEm: wrap ? wrapHalfEm(chars[chars.length - 1], hangRight) : 0,
@@ -321,7 +360,7 @@ export function computeLineEndBases(thisLineChars, nextLineChars, opts) {
   }
 
   function wrapNewEndOpts(newEndCh) {
-    var wrap = !!(newEndCh && isSpaceAfter(newEndCh) && !alreadyHalf);
+    var wrap = !!(newEndCh && shouldWrapMovedLastHalf([newEndCh], hangRight) && !alreadyHalf);
     return {
       wrapNewEndHalf: wrap,
       wrapNewEndEm: wrap ? wrapHalfEm(newEndCh, hangRight) : 0,
@@ -383,6 +422,30 @@ export function hangAmountsEm(lineEm, maxEm, pullBaseEm, pushBaseEm) {
     pullAmountEm: pullBaseEm + lineEm - maxEm,
     pushAmountEm: pushBaseEm + maxEm - lineEm,
   };
+}
+
+/** 第 4 步收完本行后缀被折到下行：第 5 步仍用收之前的行尾和原下行行头 */
+export function restoreLineCharsIfComboSplit(beforeThis, beforeNext, afterThis, afterNext) {
+  if (!beforeThis || !afterThis || afterThis.length >= beforeThis.length) return null;
+  for (var i = 0; i < afterThis.length; i++) {
+    if (afterThis[i] !== beforeThis[i]) return null;
+  }
+  var dropped = beforeThis.slice(afterThis.length);
+  if (!dropped.length || !afterNext || afterNext.length < dropped.length) return null;
+  for (var j = 0; j < dropped.length; j++) {
+    if (afterNext[j] !== dropped[j]) return null;
+  }
+  return { thisChars: beforeThis.slice(), nextChars: (beforeNext || []).slice() };
+}
+
+/** 视觉行只剩本串前缀：字被折走，剩余不摊 */
+export function lineLostIntendedRun(currentChars, intendedChars) {
+  if (!intendedChars || !intendedChars.length || !currentChars) return false;
+  if (currentChars.length >= intendedChars.length) return false;
+  for (var i = 0; i < currentChars.length; i++) {
+    if (currentChars[i] !== intendedChars[i]) return false;
+  }
+  return true;
 }
 
 export function lineStepPlan(lineIndex, lineCount) {

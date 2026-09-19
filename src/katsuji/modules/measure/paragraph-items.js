@@ -173,6 +173,7 @@ export function collectGapsBetween(items, startIncl, endIncl, opts) {
   for (var j = startIncl; j <= end && j < items.length; j++) {
     if (items[j].type !== 'gap') continue;
     if (items[j].el.getAttribute('data-ts-line-start-open-gap') === '1') continue;
+    if (items[j].el.getAttribute('data-ts-line-end-gap') === '1') continue;
     out.push(items[j].el);
   }
 
@@ -190,8 +191,8 @@ export function collectGapsBetween(items, startIncl, endIncl, opts) {
 }
 
 /**
- * 第 5 步可调缝：压入含行尾 `后有空` 后面那条（抽上来后变接缝）；
- * 推出只动行内，行最末按推完留下来的最后一字（stayEndIdx）算。
+ * 第 5 步可调缝：压入、推出都只走行内；行尾后面那条不摊。
+ * 推出行最末按推完留下来的最后一字（stayEndIdx）算。
  * @param {number} [stayEndIdx] 推完后留在本行的最后一字；缺省等于 lastIdx
  */
 export function collectLineEndHangGaps(items, range, lastIdx, stayEndIdx) {
@@ -213,7 +214,7 @@ export function collectLineEndHangGaps(items, range, lastIdx, stayEndIdx) {
   return {
     interiorGaps: interiorGaps,
     trailingGaps: trailingGaps,
-    pullGaps: interiorGaps.concat(trailingGaps),
+    pullGaps: interiorGaps,
     pushGaps: pushGaps,
   };
 }

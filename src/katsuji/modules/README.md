@@ -24,4 +24,4 @@ env.js        浏览器 document/window 引用
 
 各模块为 **ESM**（`export` / `import`），由 `index.js` 汇总为全局 `Katsuji`（IIFE 打包）。
 
-过程怎么串起来：仓库根目录 [TYPESET.md](../../../TYPESET.md)。
+过程怎么串起来：[TYPESET.md](../../../process/TYPESET.md)。标点表 [PUNCT.md](../../../process/PUNCT.md)，悬挂 [HANG.md](../../../process/HANG.md)，量宽 [MEASURE.md](../../../process/MEASURE.md)。

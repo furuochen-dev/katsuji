@@ -3,7 +3,7 @@ import {
   firstSignificantCharIndexOnLine,
   gapElAdjacentBeforeChar,
 } from '../../measure/paragraph-items.js';
-import { isSpaceOnEdgeStart } from '../../text/punctuation-rules.js';
+import { isSpaceOnEdgeStart, isCenterStop } from '../../text/punctuation-rules.js';
 import {
   wrapCharAsLineStartOpen,
   charItemIsHalfPunctWrapped,
@@ -21,6 +21,14 @@ export function trySpaceOnEdgeStart(layout, L, hp) {
   var nextLineStart = L + 1 < heads.length ? heads[L + 1] : items.length;
   var sig = firstSignificantCharIndexOnLine(items, lineStart, nextLineStart);
   if (sig < 0) return false;
+  if (isCenterStop(items[sig].ch)) {
+    var stopGap = gapElAdjacentBeforeChar(items, sig);
+    if (!stopGap) return false;
+    stopGap.style.paddingLeft = '0';
+    stopGap.style.marginLeft = '0';
+    stopGap.setAttribute('data-ts-line-start-open-gap', '1');
+    return punctHit('space-start', L, [stopGap], { ch: items[sig].ch, charEl: null });
+  }
   if (!isSpaceOnEdgeStart(items[sig].ch)) return false;
   if (charItemIsHalfPunctWrapped(items[sig])) return false;
 

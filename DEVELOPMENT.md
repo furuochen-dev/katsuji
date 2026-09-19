@@ -1,4 +1,4 @@
-排版流水线（切缝、连写、避头尾、填满、步进）见 [TYPESET.md](TYPESET.md)。
+排版流水线见 [TYPESET.md](process/TYPESET.md)。标点表 [PUNCT.md](process/PUNCT.md)，悬挂 [HANG.md](process/HANG.md)，量宽 [MEASURE.md](process/MEASURE.md)。
 
 ## 参与开发
 

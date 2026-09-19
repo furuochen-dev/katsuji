@@ -35,8 +35,10 @@ describe('悬挂选项', function () {
     assert.equal(wrapHalfEm('」', 'stops'), 0.5);
   });
 
-  it('all：后有空都可悬挂', function () {
+  it('all：后有空都可悬挂；不置中时与 exceptCenterFixed 相同', function () {
     assert.equal(isHangable('」', 'all'), true);
+    assert.equal(isHangable('！', 'all'), true);
+    assert.equal(isHangable('！', 'exceptCenterFixed'), true);
     assert.equal(wrapHalfEm('」', 'all'), 1);
   });
 

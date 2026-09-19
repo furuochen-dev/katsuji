@@ -4,6 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>标点外侧标记 · Demo</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-tc-webfont@1.2.0/lxgwwenkaitc-regular.css" />
     <style>
       :root {
         font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -77,6 +80,10 @@
         opacity: 0.45;
         cursor: default;
       }
+      .width-control .hang-right-opts {
+        flex-wrap: wrap;
+        gap: 0.25rem 0.65rem;
+      }
       #hang-step-status {
         flex: 1 1 12rem;
         min-width: 10rem;
@@ -147,6 +154,7 @@
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
         /* 默认与滑块一致，具体值由脚本同步 */
         max-width: 30em;
+        font-family: "LXGW WenKai", "PingFang SC", sans-serif;
       }
       #content p {
         margin: 0 0 1em;
@@ -155,6 +163,10 @@
       }
       #content p:last-child {
         margin-bottom: 0;
+      }
+      /* 置中标点字体：句读在框心，和默认 LXGW WenKai 角置对照 */
+      #content.center-punct-font {
+        font-family: "LXGW WenKai TC", "LXGW WenKai", "PingFang TC", sans-serif;
       }
       /* Demo：ts-gap 为零宽 inline-box（始终启用，保证 padding/margin 生效） */
       #content.marked span.ts-gap {
@@ -227,6 +239,13 @@
         <input id="hang-punct" type="checkbox" checked />
         标点悬挂
       </label>
+      <span class="hang-debug hang-right-opts" id="hang-right">
+        右挂
+        <label class="hang-debug"><input type="radio" name="hang-right" value="none" /> 不挂</label>
+        <label class="hang-debug"><input type="radio" name="hang-right" value="all" /> 后有空</label>
+        <label class="hang-debug"><input type="radio" name="hang-right" value="stops" checked /> 句读 ，。、</label>
+        <label class="hang-debug"><input type="radio" name="hang-right" value="exceptCenterFixed" /> 后有空除了置中固定</label>
+      </span>
       <label class="hang-debug">
         <input id="hang-left-indent" type="checkbox" checked />
         缩进左挂
@@ -239,12 +258,16 @@
         <input id="text-indent" type="checkbox" />
         段首缩进 2em
       </label>
+      <label class="hang-debug">
+        <input id="center-punct" type="checkbox" />
+        置中标点（字体+排版）
+      </label>
       <button type="button" id="hang-reset">取消调整</button>
       <button type="button" id="hang-step">下一步</button>
       <output id="hang-step-status">自动排版</output>
     </div>
     <p class="note">
-      流水线见仓库根目录 <code>TYPESET.md</code>。「下一步」一次做完<strong>一行</strong>（第 3–5 步）。段首行也顶格。段末行跳过行尾处理。本页默认打开<strong>标点悬挂</strong>（右挂句读；沟左右各 0.5em；<strong>缩进左挂</strong>开、<strong>全局左挂</strong>关）。没有段首缩进时缩进左挂不推盒；勾上<strong>段首缩进 2em</strong>，段首「（《才推进缩进。全局左挂才把各行开括号推进左沟。关掉悬挂即回到 1.0。步进时左边红 <strong>▶刚</strong> 指刚做完的行，绿 <strong>▷下</strong> 指接下来要做的行。<code>applyHangAvoidance</code> 会把容器设成 <code>line-break: anywhere</code>，排完不改回来。
+      流水线见 <code>process/TYPESET.md</code>。「下一步」一次做完<strong>一行</strong>（第 3–5 步）。段首行也顶格。段末行跳过行尾处理。本页默认打开<strong>标点悬挂</strong>（<strong>右挂</strong>默认句读 ，。、；<strong>后有空</strong>含问叹；<strong>后有空除了置中固定</strong>在置中时不挂？！；沟左右各 0.5em；<strong>缩进左挂</strong>开、<strong>全局左挂</strong>关）。没有段首缩进时缩进左挂不推盒；勾上<strong>段首缩进 2em</strong>，段首「（《才推进缩进。全局左挂才把各行开括号推进左沟。关掉悬挂即回到 1.0。<strong>置中标点（字体+排版）</strong>换成 LXGW WenKai TC，并打开置中管线：点号两边插缝、可挂、不收半角，成对仍连写。不置中用 LXGW WenKai。步进时左边红 <strong>▶刚</strong> 指刚做完的行，绿 <strong>▷下</strong> 指接下来要做的行。<code>applyHangAvoidance</code> 会把容器设成 <code>line-break: anywhere</code>，排完不改回来。
     </p>
 
     <div class="demo-stage">
@@ -282,9 +305,15 @@
         var lwOut = document.getElementById('line-width-out');
         var gapPreview = document.getElementById('gap-preview');
         var hangPunct = document.getElementById('hang-punct');
+        var hangRightBox = document.getElementById('hang-right');
+        var hangRightRadios = hangRightBox
+          ? hangRightBox.querySelectorAll('input[name="hang-right"]')
+          : [];
         var hangLeftIndent = document.getElementById('hang-left-indent');
         var hangLeft = document.getElementById('hang-left');
         var textIndent = document.getElementById('text-indent');
+        var centerPunct = document.getElementById('center-punct');
+        var sourceHtml = el.innerHTML;
         var hangReset = document.getElementById('hang-reset');
         var hangStep = document.getElementById('hang-step');
         var hangStepStatus = document.getElementById('hang-step-status');
@@ -295,21 +324,44 @@
         el.classList.add('marked');
 
         if (gapPreview && gapPreview.checked) el.classList.add('gap-preview');
+        function applyCenterMode() {
+          var on = !!(centerPunct && centerPunct.checked);
+          el.classList.toggle('center-punct-font', on);
+          Katsuji.setPunctConfig({ punctAlign: on ? 'center' : 'corner' });
+        }
+        applyCenterMode();
         Katsuji.apply(el);
+
+        function hangRightValue() {
+          for (var i = 0; i < hangRightRadios.length; i++) {
+            if (hangRightRadios[i].checked) return hangRightRadios[i].value;
+          }
+          return 'stops';
+        }
 
         function syncHangLeftEnabled() {
           var on = !!(hangPunct && hangPunct.checked);
+          for (var i = 0; i < hangRightRadios.length; i++) hangRightRadios[i].disabled = !on;
           if (hangLeftIndent) hangLeftIndent.disabled = !on;
           if (hangLeft) hangLeft.disabled = !on;
         }
 
         function hangAvoidanceOpts() {
           if (!hangPunct || !hangPunct.checked) return {};
+          var right = hangRightValue();
+          if (
+            right !== 'stops' &&
+            right !== 'all' &&
+            right !== 'none' &&
+            right !== 'exceptCenterFixed'
+          ) {
+            right = 'stops';
+          }
           return {
             hangingPunctuation: {
               hangLeftIndent: !!(hangLeftIndent && hangLeftIndent.checked),
               hangLeft: !!(hangLeft && hangLeft.checked),
-              hangRight: 'stops',
+              hangRight: right,
             },
           };
         }
@@ -661,6 +713,9 @@
             bump();
           });
         }
+        for (var ri = 0; ri < hangRightRadios.length; ri++) {
+          hangRightRadios[ri].addEventListener('change', bump);
+        }
         if (hangLeftIndent) {
           hangLeftIndent.addEventListener('change', bump);
         }
@@ -672,6 +727,18 @@
           textIndent.addEventListener('change', function () {
             applyTextIndent();
             bump();
+          });
+        }
+        if (centerPunct) {
+          centerPunct.addEventListener('change', function () {
+            applyCenterMode();
+            el.innerHTML = sourceHtml;
+            applyTextIndent();
+            Katsuji.apply(el);
+            bump();
+            if (document.fonts && document.fonts.ready) {
+              document.fonts.ready.then(bump).catch(function () {});
+            }
           });
         }
         if (hangReset) {

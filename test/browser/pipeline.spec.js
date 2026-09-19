@@ -586,7 +586,7 @@ test.describe('第 5 步 行尾 / 段末', function () {
     expect(after.closeGap).toBe(false);
   });
 
-  test('撑行：本行只有行尾后有空那条缝时，压入仍抽这一条', async function ({ page }) {
+  test('撑行：本行只有行尾后缝时，压入不抽这条缝', async function ({ page }) {
     await openHost(page, 8);
     await setParagraph(page, '一二三四五六七，八九十一二三四五六七八九十');
     var before = await page.evaluate(() => {
@@ -630,13 +630,15 @@ test.describe('第 5 步 行尾 / 段末', function () {
         gapCount: lineEnd && lineEnd.gaps ? lineEnd.gaps.length : 0,
         em: lineEnd && lineEnd.em,
         commaMl: commaGap ? commaGap.style.marginLeft : '',
+        locked: !!(commaGap && commaGap.getAttribute('data-ts-line-end-gap') === '1'),
       };
     });
     expect(after.branch).toBe('5.2');
-    expect(after.usedPushFallback).toBe(false);
-    expect(after.gapCount).toBe(1);
-    expect(after.em).toMatch(/^-/);
-    expect(after.commaMl).toMatch(/^-/);
+    expect(after.usedPushFallback).toBe(true);
+    expect(after.gapCount).toBe(0);
+    expect(after.em == null || after.em === '0em').toBe(true);
+    expect(after.commaMl === '' || after.commaMl === '0px' || after.commaMl === '0em').toBe(true);
+    expect(after.locked).toBe(true);
   });
 
   test('撑行抽 了」：后面的」一并抽上来，不晾成新行头', async function ({ page }) {
@@ -1171,5 +1173,232 @@ test.describe('标点悬挂', function () {
     });
     expect(indent).toBeTruthy();
     expect(parseFloat(indent) || 0).toBe(0);
+  });
+});
+
+test.describe('置中标点', function () {
+  test('。左右各一条缝，？无缝，不叠缝', async function ({ page }) {
+    await openHost(page, 20);
+    await setParagraph(page, '汉。汉？汉');
+    var info = await page.evaluate(() => {
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(document.getElementById('host'));
+      var p = document.querySelector('#host p');
+      var items = window.Katsuji.flattenParagraph(p);
+      var seq = [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type === 'char') seq.push(items[i].ch);
+        else seq.push(items[i].el.getAttribute('data-ts-open-gap') === '1' ? '[open]' : '[after]');
+      }
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return seq;
+    });
+    expect(info).toEqual(['汉', '[open]', '。', '[after]', '汉', '？', '汉']);
+  });
+
+  test('行首。锁前缝；）」收左；。」收右（」半角，。不左裁）', async function ({ page }) {
+    await openHost(page, 16);
+    await setParagraph(page, '。行首点号后面还有很多汉字用来撑开这一行避免过短）」文。」文');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host);
+      var p = host.querySelector('p');
+      var first = p.querySelector('[data-ts-line-start-open-gap]');
+      var halves = Array.prototype.map.call(p.querySelectorAll('span.ts-half-punct'), function (el) {
+        return {
+          ch: el.textContent,
+          center: el.getAttribute('data-ts-center-hang') === '1',
+        };
+      });
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return {
+        locked: !!first,
+        halves: halves,
+      };
+    });
+    expect(info.locked).toBe(true);
+    expect(info.halves.some(function (h) { return h.ch === '）' && !h.center; })).toBe(true);
+    expect(info.halves.some(function (h) { return h.ch === '」' && !h.center; })).toBe(true);
+    expect(info.halves.some(function (h) { return h.ch === '。' && !h.center; })).toBe(false);
+  });
+
+  test('行尾：包居中半角盒', async function ({ page }) {
+    await openHost(page, 8.5);
+    await setParagraph(page, '一二三四五六七：八九十一二三四五六七八九十abcdefghij');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangRight: 'stops' },
+      });
+      var p = host.querySelector('p');
+      var colon = Array.prototype.filter.call(p.querySelectorAll('span.ts-half-punct'), function (el) {
+        return el.textContent === '：';
+      })[0];
+      var glyph = colon && colon.querySelector('[data-ts-center-hang-glyph]');
+      var items = window.Katsuji.flattenParagraph(p);
+      var beforeLocked = false;
+      var afterLocked = false;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type !== 'char' || items[i].ch !== '：') continue;
+        if (i > 0 && items[i - 1].type === 'gap') {
+          beforeLocked = items[i - 1].el.getAttribute('data-ts-line-end-gap') === '1';
+        }
+        if (i + 1 < items.length && items[i + 1].type === 'gap') {
+          afterLocked = items[i + 1].el.getAttribute('data-ts-line-end-gap') === '1';
+        }
+        break;
+      }
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return {
+        wrapped: !!colon,
+        center: !!(colon && colon.getAttribute('data-ts-center-hang') === '1'),
+        innerMl: glyph ? glyph.style.marginLeft : '',
+        hung: !!(colon && colon.getAttribute('data-ts-hang-end') === '1'),
+        beforeLocked: beforeLocked,
+        afterLocked: afterLocked,
+      };
+    });
+    expect(info.wrapped).toBe(true);
+    expect(info.center).toBe(true);
+    expect(info.innerMl).toBe('-0.25em');
+    expect(info.hung).toBe(false);
+    expect(info.beforeLocked).toBe(false);
+    expect(info.afterLocked).toBe(true);
+  });
+
+  test('挂。是居中盒不是左裁', async function ({ page }) {
+    await openHost(page, 8.5);
+    await setParagraph(page, '一二三四五六七。八九十一二三四五六七八九十abcdefghij');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangRight: 'stops' },
+      });
+      var p = host.querySelector('p');
+      var hung = p.querySelector('[data-ts-center-hang]');
+      var glyph = hung && hung.querySelector('[data-ts-center-hang-glyph]');
+      var items = window.Katsuji.flattenParagraph(p);
+      var beforeLocked = false;
+      var afterLocked = false;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type !== 'char' || items[i].ch !== '。') continue;
+        if (i > 0 && items[i - 1].type === 'gap') {
+          beforeLocked = items[i - 1].el.getAttribute('data-ts-line-end-gap') === '1';
+        }
+        if (i + 1 < items.length && items[i + 1].type === 'gap') {
+          afterLocked = items[i + 1].el.getAttribute('data-ts-line-end-gap') === '1';
+        }
+        break;
+      }
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return {
+        hung: !!hung,
+        hangEnd: !!(hung && hung.getAttribute('data-ts-hang-end') === '1'),
+        innerMl: glyph ? glyph.style.marginLeft : '',
+        align: hung ? getComputedStyle(hung).textAlign : '',
+        beforeLocked: beforeLocked,
+        afterLocked: afterLocked,
+      };
+    });
+    expect(info.hung).toBe(true);
+    expect(info.hangEnd).toBe(true);
+    expect(info.innerMl).toBe('-0.25em');
+    expect(info.beforeLocked).toBe(true);
+    expect(info.afterLocked).toBe(true);
+  });
+
+  test('重跑补回点号前缝且不叠缝', async function ({ page }) {
+    await openHost(page, 20);
+    await setParagraph(page, '汉。汉');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(host);
+      var p = host.querySelector('p');
+      var open = p.querySelector('[data-ts-open-gap]');
+      if (open && open.parentNode) open.parentNode.removeChild(open);
+      window.Katsuji.applyHangAvoidance(host);
+      var items = window.Katsuji.flattenParagraph(p);
+      var seq = [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type === 'char') seq.push(items[i].ch);
+        else seq.push(items[i].el.getAttribute('data-ts-open-gap') === '1' ? '[open]' : '[after]');
+      }
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return seq;
+    });
+    expect(info).toEqual(['汉', '[open]', '。', '[after]', '汉']);
+  });
+
+  test('满行：「 收右之后不把捉刀摊出，也不给行内缝加 1em+', async function ({ page }) {
+    await openHost(page, 30);
+    await page.evaluate(() => {
+      var host = document.getElementById('host');
+      host.innerHTML = '';
+      var p = document.createElement('p');
+      p.style.textIndent = '2em';
+      p.textContent =
+        '（第三次联席会，含预算）议题有三项：「进度汇报、风险排查、以及下阶段计划（含印刷、纸张、装订）」。请准时参加！会上有人提起《红楼梦》，说它是一部奇书，而「脂砚斋」批语更让读者着迷：你怎么看？另有人反问：「批语是作者自拟，还是他人捉刀？」争论未决，主席只得敲槌：「先记下来，会后再议。」散会时已近黄昏，走廊里还能听见：「《石头记》……脂批……真伪……」';
+      host.appendChild(p);
+    });
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(host);
+      window.Katsuji.resetHangAdjustments(host);
+      var opts = {
+        hangingPunctuation: { hangLeftIndent: true, hangLeft: false, hangRight: 'stops' },
+      };
+      var fills = [];
+      for (var s = 0; s < 16; s++) {
+        var hit = window.Katsuji.stepHangAvoidance(host, opts);
+        if (!hit) break;
+        var part = (hit.parts || []).filter(function (x) {
+          return x.kind === 'line-end';
+        })[0];
+        if (part && part.fillEm > 0.6) {
+          fills.push({ fillEm: part.fillEm, branch: part.branch, L: hit.lineIndex });
+        }
+      }
+      var layout = window.Katsuji.buildBlockLayout(p);
+      var lines = [];
+      var maxPad = 0;
+      if (layout) {
+        for (var i = 0; i < layout.heads.length; i++) {
+          var r = window.Katsuji.lineItemBounds(layout.items, layout.heads, i);
+          var m = window.Katsuji.measureLineVisualMetricsPx(p, layout.items, r.startIndex, r.endIndex);
+          var text = (m.text || '').replace(/\s+/g, '');
+          lines.push(text);
+          for (var g = r.startIndex; g <= r.endIndex && g < layout.items.length; g++) {
+            if (layout.items[g].type !== 'gap') continue;
+            var pl = parseFloat(layout.items[g].el.style.paddingLeft) || 0;
+            var em = pl / layout.emPx;
+            if (em > maxPad) maxPad = em;
+          }
+        }
+      }
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return {
+        fills: fills,
+        maxPad: maxPad,
+        hasDao: lines.some(function (t) {
+          return t.indexOf('还是他人捉刀') !== -1;
+        }),
+        brokeAtNi: lines.some(function (t) {
+          return /自拟，$/.test(t) && t.indexOf('捉刀') < 0;
+        }),
+      };
+    });
+    expect(info.fills).toEqual([]);
+    expect(info.maxPad).toBeLessThan(0.6);
+    expect(info.hasDao).toBe(true);
+    expect(info.brokeAtNi).toBe(false);
   });
 });

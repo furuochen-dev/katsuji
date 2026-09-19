@@ -2,7 +2,7 @@
 import { getDocument, defaultRoot } from '../../env.js';
 import { shouldSkipTextParent } from '../../core/dom-util.js';
 import { flattenParagraph } from '../../measure/paragraph-items.js';
-import { BEFORE_OPEN_GAP, AFTER_CHARS } from '../../text/punctuation-rules.js';
+import { gapInsertSide } from '../typeset-rules.js';
 
 function collectTextNodes(root) {
   var list = [];
@@ -22,7 +22,8 @@ function splitTextWithMarkers(text, documentRef) {
   var buf = '';
   for (var i = 0; i < text.length; i++) {
     var ch = text.charAt(i);
-    if (BEFORE_OPEN_GAP[ch]) {
+    var side = gapInsertSide(ch);
+    if (side === 'before' || side === 'both') {
       if (buf) {
         frag.appendChild(documentRef.createTextNode(buf));
         buf = '';
@@ -32,11 +33,9 @@ function splitTextWithMarkers(text, documentRef) {
       spanBefore.setAttribute('data-ts-open-gap', '1');
       spanBefore.setAttribute('style', 'padding-left: 0px;');
       frag.appendChild(spanBefore);
-      buf += ch;
-      continue;
     }
     buf += ch;
-    if (AFTER_CHARS[ch]) {
+    if (side === 'after' || side === 'both') {
       frag.appendChild(documentRef.createTextNode(buf));
       var span = documentRef.createElement('span');
       span.setAttribute('class', 'ts-gap');
@@ -77,6 +76,7 @@ export function resetGapStyles(block) {
     spans[i].style.marginLeft = '0px';
     spans[i].removeAttribute('data-ts-head-punct-trail');
     spans[i].removeAttribute('data-ts-line-start-open-gap');
+    spans[i].removeAttribute('data-ts-line-end-gap');
   }
 }
 
@@ -142,11 +142,12 @@ function findFirstMissingGap(items) {
   for (var i = 0; i < items.length; i++) {
     if (items[i].type !== 'char') continue;
     var ch = items[i].ch;
-    if (AFTER_CHARS[ch]) {
+    var side = gapInsertSide(ch);
+    if (side === 'after' || side === 'both') {
       var next = nextNonWs(items, i + 1);
       if (next && next.type === 'char') return { item: items[i], side: 'after' };
     }
-    if (BEFORE_OPEN_GAP[ch]) {
+    if (side === 'before' || side === 'both') {
       var prev = prevNonWs(items, i - 1);
       if (prev && prev.type === 'char') return { item: items[i], side: 'before' };
     }

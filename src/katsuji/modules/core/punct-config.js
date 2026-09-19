@@ -3,6 +3,8 @@ import {
   DEFAULT_GAP_BEFORE,
   DEFAULT_GAP_NONE,
   DEFAULT_GAP_AFTER,
+  CENTER_ALIGN_STOPS,
+  CENTER_ALIGN_FIXED,
   rebuildPunctSets,
 } from '../text/punctuation-rules.js';
 
@@ -43,12 +45,22 @@ export function resolvePunctStrings(cfg) {
   if (cfg.gapNone != null) gapNone = cfg.gapNone;
   if (cfg.gapAfter != null) gapAfter = cfg.gapAfter;
 
-  return { gapBefore: gapBefore, gapNone: gapNone, gapAfter: gapAfter };
+  var centerStops = cfg.punctAlign === 'center' ? CENTER_ALIGN_STOPS : '';
+  var centerFixed = cfg.punctAlign === 'center' ? CENTER_ALIGN_FIXED : '';
+
+  return {
+    gapBefore: gapBefore,
+    gapNone: gapNone,
+    gapAfter: gapAfter,
+    centerStops: centerStops,
+    centerFixed: centerFixed,
+  };
 }
 
 export const punctConfig = {
   jisStrict: false,
   vertical: false,
+  punctAlign: 'corner',
   gapBefore: null,
   gapNone: null,
   gapAfter: null,
@@ -56,13 +68,16 @@ export const punctConfig = {
 
 function applyResolvedPunct() {
   var s = resolvePunctStrings(punctConfig);
-  rebuildPunctSets(s.gapBefore, s.gapNone, s.gapAfter);
+  rebuildPunctSets(s.gapBefore, s.gapNone, s.gapAfter, s.centerStops, s.centerFixed);
 }
 
 export function mergePunctConfig(overrides) {
   if (!overrides || typeof overrides !== 'object') return punctConfig;
   if (overrides.jisStrict != null) punctConfig.jisStrict = !!overrides.jisStrict;
   if (overrides.vertical != null) punctConfig.vertical = !!overrides.vertical;
+  if (overrides.punctAlign === 'center' || overrides.punctAlign === 'corner') {
+    punctConfig.punctAlign = overrides.punctAlign;
+  }
   if (overrides.gapBefore !== undefined) punctConfig.gapBefore = overrides.gapBefore;
   if (overrides.gapNone !== undefined) punctConfig.gapNone = overrides.gapNone;
   if (overrides.gapAfter !== undefined) punctConfig.gapAfter = overrides.gapAfter;
@@ -76,6 +91,7 @@ export function applyPunctPreset(name) {
     return mergePunctConfig({
       jisStrict: false,
       vertical: false,
+      punctAlign: 'corner',
       gapBefore: null,
       gapNone: null,
       gapAfter: null,

@@ -15,6 +15,7 @@ span.ts-half-punct,
 span.ts-line-end-half,
 span[data-ts-line-start-nowrap] {
   text-indent: 0;
+  min-width: 0;
 }
 
 span[data-ts-line-start-nowrap] {

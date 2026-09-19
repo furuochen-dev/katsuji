@@ -2,7 +2,7 @@
 import { defaultRoot, getDocument } from '../../env.js';
 import { flattenParagraph, findLineFirstCharIndices, lineItemBounds } from '../../measure/paragraph-items.js';
 import { wrapCharAsHalfPunct, wrapCharAsLineStartOpen, charItemIsHalfPunctWrapped } from '../../core/punct-wrap.js';
-import { punctGapClass } from '../../text/punctuation-rules.js';
+import { punctGapClass, isSpaceOnEdgeStart } from '../../text/punctuation-rules.js';
 import { comboPairKind, isLayoutWhitespace } from '../typeset-rules.js';
 
 function wrapNoneRunSameNode(node, startOff, endOff) {
@@ -50,10 +50,10 @@ export function glueAdjacentNonePunct(block) {
   }
 }
 
-/** 后有空露左墨；前有空和行首顶格一样，盒里左移半字只露右墨。 */
+/** 收半角落左墨；前有空和行首顶格一样，盒里左移半字只露右墨。 */
 function wrapComboHalf(item) {
   if (!item || item.type !== 'char') return null;
-  if (punctGapClass(item.ch) === 'before') return wrapCharAsLineStartOpen(item) || null;
+  if (isSpaceOnEdgeStart(item.ch)) return wrapCharAsLineStartOpen(item) || null;
   return wrapCharAsHalfPunct(item) || null;
 }
 
@@ -64,6 +64,16 @@ function firstGapBetween(items, leftIdx, rightIdx) {
     if (items[g].type === 'gap') return items[g].el;
   }
   return null;
+}
+
+function lastGapBetween(items, leftIdx, rightIdx) {
+  var lo = Math.min(leftIdx, rightIdx);
+  var hi = Math.max(leftIdx, rightIdx);
+  var found = null;
+  for (var g = lo + 1; g < hi; g++) {
+    if (items[g].type === 'gap') found = items[g].el;
+  }
+  return found;
 }
 
 /**
@@ -78,12 +88,16 @@ export function applyComboPair(items, leftIdx, rightIdx) {
   if (!left || left.type !== 'char' || !right || right.type !== 'char') return null;
   var kind = comboPairKind(left.ch, right.ch);
   if (!kind) return null;
-  var gap = firstGapBetween(items, leftIdx, rightIdx);
+  var gap = kind === 'wrap-right'
+    ? lastGapBetween(items, leftIdx, rightIdx)
+    : firstGapBetween(items, leftIdx, rightIdx);
   if (!gap) return null;
   // 4.1 只删前一条。前面已经是半角盒时，剩下的是后字前有空，不要再收。
   if (charItemIsHalfPunctWrapped(left) && kind === 'after-before') return null;
   var wrapped = null;
-  if (!charItemIsHalfPunctWrapped(left)) {
+  if (kind === 'wrap-right') {
+    wrapped = wrapComboHalf(right);
+  } else if (!charItemIsHalfPunctWrapped(left)) {
     wrapped = wrapComboHalf(left);
   } else if (!charItemIsHalfPunctWrapped(right)) {
     wrapped = wrapComboHalf(right);

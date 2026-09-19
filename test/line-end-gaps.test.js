@@ -11,8 +11,8 @@ function gapEl(attrs) {
   };
 }
 
-describe('第 5 步抽缝：压入算行尾缝，推出不算', function () {
-  it('本行没有行内缝、只剩后有空后面那条：压入缝数 1，推出缝数 0', function () {
+describe('第 5 步抽缝：压入只走行内，行尾后缝不摊', function () {
+  it('本行没有行内缝、只剩后有空后面那条：压入缝数 0，推出缝数 0', function () {
     var trailing = gapEl();
     var items = [
       { type: 'char', ch: '汉' },
@@ -24,11 +24,11 @@ describe('第 5 步抽缝：压入算行尾缝，推出不算', function () {
     var gaps = collectLineEndHangGaps(items, { startIndex: 0, endIndex: 3 }, 2);
     assert.equal(gaps.interiorGaps.length, 0);
     assert.deepEqual(gaps.trailingGaps, [trailing]);
-    assert.deepEqual(gaps.pullGaps, [trailing]);
+    assert.deepEqual(gaps.pullGaps, []);
     assert.deepEqual(gaps.pushGaps, []);
   });
 
-  it('行内缝和行尾缝都在时：压入两条，推出只动行内那条', function () {
+  it('行内缝和行尾缝都在时：压入只走行内那条，推出也只动行内', function () {
     var interior = gapEl();
     var trailing = gapEl();
     var items = [
@@ -43,7 +43,7 @@ describe('第 5 步抽缝：压入算行尾缝，推出不算', function () {
     var gaps = collectLineEndHangGaps(items, { startIndex: 0, endIndex: 5 }, 4);
     assert.deepEqual(gaps.interiorGaps, [interior]);
     assert.deepEqual(gaps.trailingGaps, [trailing]);
-    assert.deepEqual(gaps.pullGaps, [interior, trailing]);
+    assert.deepEqual(gaps.pullGaps, [interior]);
     assert.deepEqual(gaps.pushGaps, [interior]);
   });
 
@@ -116,5 +116,21 @@ describe('第 5 步抽缝：压入算行尾缝，推出不算', function () {
     var gaps = collectLineEndHangGaps(items, { startIndex: 0, endIndex: 1 }, 1);
     assert.deepEqual(gaps.pullGaps, []);
     assert.deepEqual(gaps.pushGaps, []);
+  });
+
+  it('锁死的缝不进抽缝', function () {
+    var interior = gapEl();
+    var lockedBefore = gapEl({ 'data-ts-line-end-gap': '1' });
+    var items = [
+      { type: 'char', ch: '汉' },
+      { type: 'char', ch: '，' },
+      { type: 'gap', el: interior },
+      { type: 'char', ch: '字' },
+      { type: 'gap', el: lockedBefore },
+      { type: 'char', ch: '。' },
+    ];
+    var gaps = collectLineEndHangGaps(items, { startIndex: 0, endIndex: 5 }, 5, 5);
+    assert.deepEqual(gaps.pullGaps, [interior]);
+    assert.deepEqual(gaps.pushGaps, [interior]);
   });
 });

@@ -153,7 +153,7 @@ Katsuji.applyHangAvoidance(root, {
 });
 ```
 
-`hangRight`：`'stops'` 句读 / `'all'` 全部 `后有空` / `'none'` 不挂。`hangLeftIndent`（打开时的默认）：段首行且 `text-indent ≥ 0.5em` 时把开括号推进缩进；没有缩进不推。`hangLeft`：每一行再推进左沟。
+`hangRight`：`'none'` 不挂 / `'stops'` 句读 / `'all'` 后有空（含 `？` `！`）/ `'exceptCenterFixed'` 后有空减去 `置中固定`。打开置中且 `hangingPunctuation: true` 时默认 `'exceptCenterFixed'`。`hangLeftIndent`（打开时的默认）：段首行且 `text-indent ≥ 0.5em` 时把开括号推进缩进；没有缩进不推。`hangLeft`：每一行再推进左沟。
 
 ### 挤进 / 推出策略（`hang.strategyDecider`）
 
@@ -194,6 +194,7 @@ Katsuji.applyHangAvoidance(root, {
 Katsuji.setPunctConfig({
   jisStrict: true, // JIS 严格：叠字符号、假名叠字、小假名、片假名长音 ー → none
   vertical: true,  // 竖排：！？→ none；国标竖排九字 U+FE10–FE18 入对应类
+  punctAlign: 'center', // 默认 'corner'。置中字体：点号两边插缝、可挂、不收半角；？！固定 1em；成对仍连写。须在 apply 前设置
   gapBefore: null, // 传入字符串则整类替换（null 用预设叠加后的默认）
   gapNone: null,
   gapAfter: null,
