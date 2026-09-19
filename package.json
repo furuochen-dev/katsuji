@@ -1,6 +1,6 @@
 {
   "name": "katsuji",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "CJKV Automatic Dynamic Typesetting Engine",
   "private": false,
   "type": "module",
