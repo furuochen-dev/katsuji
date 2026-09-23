@@ -98,10 +98,67 @@ function measureHalfEmCharAdjustPx(items, startIndex, endIndex, emPx) {
   return total;
 }
 
+function charItemRubyEl(item) {
+  if (!item || item.type !== 'char' || !item.node || !item.node.parentElement) return null;
+  var el = item.node.parentElement;
+  return el.closest ? el.closest('ruby') : null;
+}
+
+function rubyFragmentWidthPx(ruby, sampleItem) {
+  var rects = ruby.getClientRects();
+  if (!rects.length) return ruby.getBoundingClientRect().width;
+  if (rects.length === 1) return rects[0].width;
+  var sample = getItemRect(sampleItem);
+  var midY = sample.top + sample.height / 2;
+  var i;
+  for (i = 0; i < rects.length; i++) {
+    if (midY >= rects[i].top && midY <= rects[i].bottom) return rects[i].width;
+  }
+  var best = rects[0];
+  var bestDist = Math.abs(rects[0].top + rects[0].height / 2 - midY);
+  for (i = 1; i < rects.length; i++) {
+    var d = Math.abs(rects[i].top + rects[i].height / 2 - midY);
+    if (d < bestDist) {
+      best = rects[i];
+      bestDist = d;
+    }
+  }
+  return best.width;
+}
+
+/** 抽/推一串：ruby 整簇按这一行盒宽计一次，其余一字 1em */
+export function runClusterGrossEm(items, idxs, emPx) {
+  var em = 0;
+  var rubySeen = [];
+  if (!(emPx > 0)) emPx = 1;
+  for (var i = 0; i < idxs.length; i++) {
+    var item = items[idxs[i]];
+    if (!item || item.type !== 'char') continue;
+    var ruby = charItemRubyEl(item);
+    if (ruby) {
+      if (rubySeen.indexOf(ruby) >= 0) continue;
+      rubySeen.push(ruby);
+      var w = rubyFragmentWidthPx(ruby, item);
+      em += w > 0 ? w / emPx : 1;
+      continue;
+    }
+    em += 1;
+  }
+  return em;
+}
+
 function measureLineCharsPx(items, startIndex, endIndex) {
   var total = 0;
+  var rubySeen = [];
   for (var i = startIndex; i <= endIndex && i < items.length; i++) {
     if (items[i].type !== 'char') continue;
+    var ruby = charItemRubyEl(items[i]);
+    if (ruby) {
+      if (rubySeen.indexOf(ruby) >= 0) continue;
+      rubySeen.push(ruby);
+      total += rubyFragmentWidthPx(ruby, items[i]);
+      continue;
+    }
     total += getItemRect(items[i]).width;
   }
   return total;

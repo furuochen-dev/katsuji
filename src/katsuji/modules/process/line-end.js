@@ -10,7 +10,12 @@ import {
 import { wrapLineEndPunct, charItemIsHalfPunctWrapped, protrudeHalfPunctEnd } from '../core/punct-wrap.js';
 import { applyMarginToGaps, decideHangOnGaps, punctHit } from './postprocess/edge-shared.js';
 import { applyComboPairsOnPullRun } from './preprocess/combo.js';
-import { buildBlockLayout, measureLineVisualMetricsPx, blockLineMaxEm } from '../measure/line-width.js';
+import {
+  buildBlockLayout,
+  measureLineVisualMetricsPx,
+  blockLineMaxEm,
+  runClusterGrossEm,
+} from '../measure/line-width.js';
 import { addGapPaddingEm } from '../measure/gap-padding-margin.js';
 import {
   computeLineEndBases,
@@ -126,6 +131,24 @@ function fillLineLeftover(layout, L, intendedThisChars) {
   return { gaps: interior, addEm: addEm };
 }
 
+/** 抽完或抽不动：还在行尾的可挂字仍要挂（抽上来的若是宽 ruby，UA 折不回来）。 */
+function hangRemainingLineEnd(layout, L, hp) {
+  if (!layout || !layout.block) return null;
+  var next = buildBlockLayout(layout.block);
+  if (!next || L < 0 || L >= next.heads.length) return null;
+  var range = lineItemBounds(next.items, next.heads, L);
+  var lastIdx = lastSignificantCharIndexOnLine(next.items, range.startIndex, range.endIndex + 1);
+  if (lastIdx < 0) return null;
+  var item = next.items[lastIdx];
+  if (!item || item.type !== 'char' || !isHangable(item.ch, hp.hangRight)) return null;
+  var span = wrapLineEndPunct(item, hp.hangRight);
+  if (!span) return null;
+  if (span.getAttribute('data-ts-hang-end') === '1') return null;
+  protrudeHalfPunctEnd(span);
+  lockLineEndPunctGaps(next.items, lastIdx, hp.hangRight, true);
+  return span;
+}
+
 export function applyLineEndOnLine(layout, L, hangOpts, lineCharsHint) {
   if (!layout || isParagraphLastLine(layout, L)) return false;
   var items = layout.items;
@@ -167,6 +190,14 @@ export function applyLineEndOnLine(layout, L, hangOpts, lineCharsHint) {
     newEndAlreadyHalf: newEndAlreadyHalf,
     hangRight: hp.hangRight,
   });
+  var pullPlan = bases.pullChars || [];
+  var pullMeasureIdxs = [];
+  for (var pmi = 0; pmi < pullPlan.length; pmi++) {
+    if (nextIdxs[pmi] != null) pullMeasureIdxs.push(nextIdxs[pmi]);
+  }
+  if (pullMeasureIdxs.length && layout.emPx > 0) {
+    bases.pullBaseEm += runClusterGrossEm(items, pullMeasureIdxs, layout.emPx) - pullMeasureIdxs.length;
+  }
 
   var range = lineItemBounds(items, heads, L);
   var lastIdx = lastSignificantCharIndexOnLine(items, thisStart, nextStart);
@@ -258,6 +289,12 @@ export function applyLineEndOnLine(layout, L, hangOpts, lineCharsHint) {
     for (var f = 0; f < fill.gaps.length; f++) {
       if (appliedGaps.indexOf(fill.gaps[f]) < 0) appliedGaps.push(fill.gaps[f]);
     }
+  }
+  if (layout.block) void layout.block.offsetHeight;
+  var remain = hangRemainingLineEnd(layout, L, hp);
+  if (remain) {
+    charEl = remain;
+    hung = true;
   }
   return punctHit('line-end', L, appliedGaps, {
     branch: bases.branch,

@@ -306,13 +306,16 @@
       <p>
         注音：<ruby>漢<rt>ㄏㄢˋ</rt></ruby><ruby>字<rt>ㄗˋ</rt></ruby>要能断行。振り：<ruby>東京<rt>とうきょう</rt></ruby>の<ruby>漢字<rt>かんじ</rt></ruby>は<ruby>美しい<rt>うつくしい</rt></ruby>と言われ、組 ruby の<ruby>東京都庁<rt>とうきょうとちょう</rt></ruby>まで歩いた。「<ruby>脂硯齋<rt>しけんさい</rt></ruby>」批語と、括弧付き「<ruby>漢<rt>かん</rt></ruby>」も試す。
       </p>
+      <p>
+        注音比底宽时，合按 ruby 盒计，不跟底的 Range。缩窄文字框看多行：他<ruby>承<rt>うけたまわ</rt></ruby>るその<ruby>申<rt>もうしで</rt></ruby>は、<ruby>漢<rt>かんかんかん</rt></ruby>の上に長い仮名が乗る。<ruby>囁<rt>ささやき</rt></ruby>く声と<ruby>諸<rt>もろもろ</rt></ruby>の事情を<ruby>聞<rt>ききき</rt></ruby>いてから、<ruby>赢<rt>ㄧㄥˊㄧㄥˊ</rt></ruby>了一局才散。后又<ruby>承<rt>うけたまわ</rt></ruby><ruby>知<rt>し</rt></ruby>った話を繰り返す。行尾若只差半格，合按盒计才抽得动下一字。再写一段把行撑满：<ruby>承<rt>うけたまわ</rt></ruby>った翌日も、<ruby>漢<rt>かんかんかん</rt></ruby>と<ruby>諸<rt>もろもろ</rt></ruby>を並べて歩いた。
+      </p>
       </article>
     </div>
 
     <aside id="line-width-panel" aria-live="polite">
       <h2 id="line-width-title">行宽分解（字 / 空 / 半 / 合）· em</h2>
       <p class="note" id="line-width-note" style="margin: 0">
-        与 <code>measureLineVisualMetricsPx</code> 同源：<strong>字</strong> = DOM 逐字 rect；<strong>空</strong> = ts-gap pm；<strong>半</strong> = 半角 span 修正（每 span 计一次）；<strong>合</strong> = 字 + 空 − 半。
+        与 <code>measureLineVisualMetricsPx</code> 同源：<strong>字</strong> = 不在 ruby 里的逐字 rect；<strong>ruby</strong> = 这一行的盒一次；<strong>空</strong> = ts-gap pm；<strong>半</strong> = 半角 span 修正（每 span 计一次）；<strong>合</strong> = 字 + 空 − 半。
       </p>
       <div id="line-width-out"></div>
     </aside>
