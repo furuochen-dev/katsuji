@@ -27,11 +27,11 @@ npm install katsuji
 
 ### CDN（jsDelivr，来自 npm 包）
 
-固定版本（推荐，把 `1.1.0` 换成你要的版本）：
+固定版本（推荐，把 `1.2.0` 换成你要的版本）：
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@1.1.0/dist/katsuji.css">
-<script src="https://cdn.jsdelivr.net/npm/katsuji@1.1.0/dist/katsuji.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@1.2.0/dist/katsuji.css">
+<script src="https://cdn.jsdelivr.net/npm/katsuji@1.2.0/dist/katsuji.js"></script>
 ```
 
 ### 本地
@@ -85,9 +85,9 @@ npm install katsuji
 只需把 `href` / `src` 换成 jsDelivr 地址，例如：
 
 ```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@1.1.0/dist/katsuji.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katsuji@1.2.0/dist/katsuji.css">
 <!-- … -->
-<script src="https://cdn.jsdelivr.net/npm/katsuji@1.1.0/dist/katsuji.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katsuji@1.2.0/dist/katsuji.js"></script>
 ```
 
 `apply` / `applyHangAvoidance` 写法不变。
