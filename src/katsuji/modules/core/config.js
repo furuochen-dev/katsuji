@@ -4,6 +4,7 @@ import { defaultStrategyDecider } from '../measure/line-width.js';
 export const hangConfig = {
   strategyDecider: defaultStrategyDecider('pull'),
   hangingPunctuation: null,
+  jukugo: 'jukugo',
 };
 
 export function mergeHangConfig(overrides) {
@@ -13,6 +14,9 @@ export function mergeHangConfig(overrides) {
   }
   if (overrides.hangingPunctuation !== undefined) {
     hangConfig.hangingPunctuation = overrides.hangingPunctuation;
+  }
+  if (overrides.jukugo != null && String(overrides.jukugo).trim()) {
+    hangConfig.jukugo = String(overrides.jukugo).trim();
   }
   return hangConfig;
 }

@@ -35,6 +35,17 @@ export function unwrapHalfPunctInBlock(block) {
   unwrapNamedWraps(block, 'span[data-ts-line-start-nowrap]');
 }
 
+export function unwrapHalfSpan(span) {
+  if (!span || !span.parentNode) return;
+  var parent = span.parentNode;
+  var text = span.textContent || '';
+  if (!text) {
+    parent.removeChild(span);
+    return;
+  }
+  parent.replaceChild(span.ownerDocument.createTextNode(text), span);
+}
+
 export function unwrapNoneRuns(block) {
   unwrapNamedWraps(block, 'span[data-ts-none-run]');
 }

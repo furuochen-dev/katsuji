@@ -16,6 +16,16 @@ import {
   lineMaxEm,
 } from '../process/typeset-rules.js';
 import { hangPadEmFromBlock } from '../process/hanging-pad.js';
+import { hangConfig } from '../core/config.js';
+import {
+  resolveJukugoName,
+  closestJukugoWrapper,
+  rubyHasJukugoAttr,
+  rubyPairs,
+  probeJukugoRunWidthPx,
+  jukugoRubiesOnLine,
+  contiguousJukugoRunOnLine,
+} from '../core/jukugo.js';
 
 export { lineMaxEm };
 
@@ -126,16 +136,43 @@ function rubyFragmentWidthPx(ruby, sampleItem) {
   return best.width;
 }
 
+function jukugoName() {
+  return resolveJukugoName(hangConfig);
+}
+
+function jukugoRunWidthPx(rubies, sampleItem) {
+  if (!rubies || !rubies.length) return 0;
+  if (rubies.length === 1 && rubyPairs(rubies[0]).length < 2) {
+    return rubyFragmentWidthPx(rubies[0], sampleItem);
+  }
+  return probeJukugoRunWidthPx(rubies);
+}
+
 /** 抽/推一串：ruby 整簇按这一行盒宽计一次，其余一字 1em */
 export function runClusterGrossEm(items, idxs, emPx) {
   var em = 0;
   var rubySeen = [];
+  var name = jukugoName();
   if (!(emPx > 0)) emPx = 1;
+  var start = idxs.length ? Math.min.apply(null, idxs) : 0;
+  var end = idxs.length ? Math.max.apply(null, idxs) : -1;
   for (var i = 0; i < idxs.length; i++) {
     var item = items[idxs[i]];
     if (!item || item.type !== 'char') continue;
     var ruby = charItemRubyEl(item);
     if (ruby) {
+      var wrap = closestJukugoWrapper(ruby, name);
+      if (wrap || (rubyHasJukugoAttr(ruby, name) && rubyPairs(ruby).length >= 2)) {
+        var run = wrap
+          ? contiguousJukugoRunOnLine(ruby, items, start, end, charItemRubyEl, name)
+          : [ruby];
+        if (!run.length) run = [ruby];
+        if (run.some(function (r) { return rubySeen.indexOf(r) >= 0; })) continue;
+        for (var ri = 0; ri < run.length; ri++) rubySeen.push(run[ri]);
+        var jw = jukugoRunWidthPx(run, item);
+        em += jw > 0 ? jw / emPx : 1;
+        continue;
+      }
       if (rubySeen.indexOf(ruby) >= 0) continue;
       rubySeen.push(ruby);
       var w = rubyFragmentWidthPx(ruby, item);
@@ -147,13 +184,107 @@ export function runClusterGrossEm(items, idxs, emPx) {
   return em;
 }
 
+export function jukugoPullDeltaEm(items, thisStart, thisEnd, pullIdxs, emPx) {
+  var name = jukugoName();
+  if (!(emPx > 0) || !pullIdxs || !pullIdxs.length) return 0;
+  var firstPull = items[pullIdxs[0]];
+  if (!firstPull || firstPull.type !== 'char') return 0;
+  var pullRuby = charItemRubyEl(firstPull);
+  if (!pullRuby) return 0;
+  var wrap = closestJukugoWrapper(pullRuby, name);
+  if (!wrap) return 0;
+  if (rubyHasJukugoAttr(pullRuby, name) && rubyPairs(pullRuby).length >= 2) return 0;
+  var extra = [];
+  for (var i = 0; i < pullIdxs.length; i++) {
+    var pr = charItemRubyEl(items[pullIdxs[i]]);
+    if (!pr || closestJukugoWrapper(pr, name) !== wrap) continue;
+    if (extra.indexOf(pr) >= 0) continue;
+    extra.push(pr);
+  }
+  if (!extra.length) return 0;
+  var prefix = contiguousJukugoRunOnLine(extra[0], items, thisStart, thisEnd, charItemRubyEl, name);
+  if (!prefix.length) {
+    var onLine = jukugoRubiesOnLine(wrap, items, thisStart, thisEnd, charItemRubyEl, name);
+    var node = extra[0].previousSibling;
+    while (node) {
+      if (isLineGapOrWs(node)) {
+        node = node.previousSibling;
+        continue;
+      }
+      if (node.nodeType === 1 && onLine.indexOf(node) >= 0) {
+        prefix.unshift(node);
+        node = node.previousSibling;
+        continue;
+      }
+      break;
+    }
+  }
+  if (!prefix.length) return 0;
+  var before = jukugoRunWidthPx(prefix, firstPull);
+  var after = jukugoRunWidthPx(prefix.concat(extra), firstPull);
+  var livePull = 0;
+  for (var e = 0; e < extra.length; e++) livePull += rubyFragmentWidthPx(extra[e], firstPull);
+  return (after - before - livePull) / emPx;
+}
+
+function isLineGapOrWs(node) {
+  if (!node) return false;
+  if (node.nodeType === 3) return !String(node.nodeValue || '').replace(/\s+/g, '');
+  if (node.nodeType !== 1) return true;
+  return !!(node.classList && node.classList.contains('ts-gap'));
+}
+
+export function jukugoPushDeltaEm(items, thisStart, thisEnd, pushIdxs, emPx) {
+  var name = jukugoName();
+  if (!(emPx > 0) || !pushIdxs || !pushIdxs.length) return 0;
+  var lastPush = items[pushIdxs[pushIdxs.length - 1]];
+  if (!lastPush || lastPush.type !== 'char') return 0;
+  var pushRuby = charItemRubyEl(lastPush);
+  if (!pushRuby) return 0;
+  var wrap = closestJukugoWrapper(pushRuby, name);
+  if (!wrap) return 0;
+  if (rubyHasJukugoAttr(pushRuby, name) && rubyPairs(pushRuby).length >= 2) return 0;
+  var extra = [];
+  for (var i = 0; i < pushIdxs.length; i++) {
+    var pr = charItemRubyEl(items[pushIdxs[i]]);
+    if (!pr || closestJukugoWrapper(pr, name) !== wrap) continue;
+    if (extra.indexOf(pr) >= 0) continue;
+    extra.push(pr);
+  }
+  if (!extra.length) return 0;
+  var onLine = contiguousJukugoRunOnLine(pushRuby, items, thisStart, thisEnd, charItemRubyEl, name);
+  if (!onLine.length) return 0;
+  var prefix = [];
+  for (var j = 0; j < onLine.length; j++) {
+    if (extra.indexOf(onLine[j]) < 0) prefix.push(onLine[j]);
+  }
+  if (!prefix.length) return 0;
+  var before = jukugoRunWidthPx(prefix, lastPush);
+  var after = jukugoRunWidthPx(prefix.concat(extra), lastPush);
+  var livePush = 0;
+  for (var e = 0; e < extra.length; e++) livePush += rubyFragmentWidthPx(extra[e], lastPush);
+  return (after - before - livePush) / emPx;
+}
+
 function measureLineCharsPx(items, startIndex, endIndex) {
   var total = 0;
   var rubySeen = [];
+  var name = jukugoName();
   for (var i = startIndex; i <= endIndex && i < items.length; i++) {
     if (items[i].type !== 'char') continue;
     var ruby = charItemRubyEl(items[i]);
     if (ruby) {
+      var wrap = closestJukugoWrapper(ruby, name);
+      if (wrap || (rubyHasJukugoAttr(ruby, name) && rubyPairs(ruby).length >= 2)) {
+        var run = wrap
+          ? contiguousJukugoRunOnLine(ruby, items, startIndex, endIndex, charItemRubyEl, name)
+          : [ruby];
+        if (!run.length) run = [ruby];
+        if (run.some(function (r) { return rubySeen.indexOf(r) >= 0; })) continue;
+        for (var ri = 0; ri < run.length; ri++) rubySeen.push(run[ri]);
+        total += jukugoRunWidthPx(run, items[i]);
+        continue;
+      }
       if (rubySeen.indexOf(ruby) >= 0) continue;
       rubySeen.push(ruby);
       total += rubyFragmentWidthPx(ruby, items[i]);
@@ -163,6 +294,8 @@ function measureLineCharsPx(items, startIndex, endIndex) {
   }
   return total;
 }
+
+export { charItemRubyEl };
 
 export function measureLineVisualMetricsPx(block, items, startIndex, endIndex) {
   var row = lineCharsFromItems(items, startIndex, endIndex);

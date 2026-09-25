@@ -155,6 +155,24 @@ Katsuji.applyHangAvoidance(root, {
 
 `hangRight`：`'none'` 不挂 / `'stops'` 句读 / `'all'` 后有空（含 `？` `！`）/ `'exceptCenterFixed'` 后有空减去 `置中固定`。打开置中且 `hangingPunctuation: true` 时默认 `'exceptCenterFixed'`。`hangLeftIndent`（打开时的默认）：段首行且 `text-indent ≥ 0.5em` 时把开括号推进缩进；没有缩进不推。`hangLeft`：每一行再推进左沟。
 
+### 熟语（`jukugo`）
+
+作者自己标。没标的一字一 ruby 不合成。仍先 `apply` 再 `applyHangAvoidance`。合成发生在 `applyHangAvoidance` 里（[TYPESET.md 5′](process/TYPESET.md)），不是 `apply`：汉字收成一串，假名收成一条 rt。量宽见 [MEASURE.md · 熟语](process/MEASURE.md#ruby-熟语)。
+
+```html
+<jukugo>
+  <ruby>承<rt>うけたまわ</rt></ruby><ruby>知<rt>し</rt></ruby>
+</jukugo>
+
+<ruby jukugo>承<rt>うけたまわ</rt>知<rt>し</rt></ruby>
+```
+
+关键字默认 `jukugo`，须在 `applyHangAvoidance` 之前设。改成 `'熟语'` 就认 `<熟语>` 和 `<ruby 熟语>`。不要给外包标签设成 block。`katsuji.css` 给标记过的熟语写 `ruby-align: space-around`，不改其它 ruby。
+
+```js
+Katsuji.setHangConfig({ jukugo: 'jukugo' });
+```
+
 ### 挤进 / 推出策略（`hang.strategyDecider`）
 
 避头避尾在「拉上一行空隙」与「推下一行空隙」之间择一时，由 `strategyDecider` 决定。函数签名：

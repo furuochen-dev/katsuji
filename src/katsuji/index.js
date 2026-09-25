@@ -28,6 +28,7 @@ import {
   lineCharsFromItems,
 } from './modules/measure/paragraph-items.js';
 import { gapPmPx, comboFixedGapPmPx, lineGapPmSumsPx } from './modules/measure/gap-padding-margin.js';
+import { probeJukugoRunWidthPx } from './modules/core/jukugo.js';
 
 const Katsuji = {
   config: { hang: hangConfig, punct: punctConfig },
@@ -59,6 +60,7 @@ const Katsuji = {
     return lineGapPmSumsPx(items, startIndex, endIndex).gapPmPx;
   },
   comboFixedGapPmPx,
+  probeJukugoRunWidthPx,
 };
 
 export default Katsuji;

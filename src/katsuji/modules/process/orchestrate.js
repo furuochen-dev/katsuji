@@ -2,6 +2,7 @@
 import { mergeHangConfig } from '../core/config.js';
 import { resetGapStyles, resetAllGapStyles, restoreMissingGaps } from './preprocess/segmenter.js';
 import { unwrapHalfPunctInBlock, unwrapNoneRuns } from '../core/punct-wrap.js';
+import { unmergeJukugoInBlock } from '../core/jukugo.js';
 import { glueTwoEmKeepPairs } from './preprocess/combo.js';
 import { relaxBuiltinLineBreak } from './preprocess/line-break.js';
 import { defaultRoot } from '../env.js';
@@ -14,6 +15,13 @@ function hangingFromOptions(options, hangOpts) {
   if (options && options.hangingPunctuation != null) return options.hangingPunctuation;
   if (hangOpts && hangOpts.hangingPunctuation != null) return hangOpts.hangingPunctuation;
   return null;
+}
+
+function hangOptsFromOptions(options) {
+  if (options && options.jukugo != null) mergeHangConfig({ jukugo: options.jukugo });
+  var hangOpts = Object.assign({}, mergeHangConfig(options && options.hang));
+  hangOpts.hangingPunctuation = hangingFromOptions(options, hangOpts);
+  return hangOpts;
 }
 
 function eachTypesetBlock(root, fn) {
@@ -37,6 +45,7 @@ function prepareBlock(block, hangingPunctuation) {
   clearHangGutter(block);
   resetGapStyles(block);
   unwrapHalfPunctInBlock(block);
+  unmergeJukugoInBlock(block);
   restoreMissingGaps(block);
   glueTwoEmKeepPairs(block);
   applyHangGutter(block, hangingPunctuation);
@@ -46,9 +55,8 @@ export function applyHangAvoidance(root, options) {
   root = defaultRoot(root);
   if (!root) return;
   options = options || {};
-  var hangOpts = Object.assign({}, mergeHangConfig(options.hang));
-  var hangingPunctuation = hangingFromOptions(options, hangOpts);
-  hangOpts.hangingPunctuation = hangingPunctuation;
+  var hangOpts = hangOptsFromOptions(options);
+  var hangingPunctuation = hangOpts.hangingPunctuation;
   if (options.relaxBuiltinLineBreak !== false) {
     relaxBuiltinLineBreak(root);
     void root.offsetHeight;
@@ -73,6 +81,7 @@ export function resetHangAdjustments(root) {
     clearHangGutter(block);
     resetAllGapStyles(block);
     unwrapHalfPunctInBlock(block);
+    unmergeJukugoInBlock(block);
     unwrapNoneRuns(block);
     restoreMissingGaps(block);
   });
@@ -93,9 +102,8 @@ export function stepHangAvoidance(root, options) {
   root = defaultRoot(root);
   if (!root) return null;
   options = options || {};
-  var hangOpts = Object.assign({}, mergeHangConfig(options.hang));
-  var hangingPunctuation = hangingFromOptions(options, hangOpts);
-  hangOpts.hangingPunctuation = hangingPunctuation;
+  var hangOpts = hangOptsFromOptions(options);
+  var hangingPunctuation = hangOpts.hangingPunctuation;
 
   if (options.relaxBuiltinLineBreak !== false) {
     relaxBuiltinLineBreak(root);

@@ -7,7 +7,14 @@ import {
   gapElAdjacentBeforeChar,
   gapElAdjacentAfterChar,
 } from '../measure/paragraph-items.js';
-import { wrapLineEndPunct, charItemIsHalfPunctWrapped, protrudeHalfPunctEnd } from '../core/punct-wrap.js';
+import {
+  wrapLineEndPunct,
+  charItemIsHalfPunctWrapped,
+  charItemHalfPunctSpan,
+  protrudeHalfPunctEnd,
+  unwrapHalfSpan,
+} from '../core/punct-wrap.js';
+import { willMergeJukugoOnLine } from '../core/jukugo.js';
 import { applyMarginToGaps, decideHangOnGaps, punctHit } from './postprocess/edge-shared.js';
 import { applyComboPairsOnPullRun } from './preprocess/combo.js';
 import {
@@ -15,6 +22,9 @@ import {
   measureLineVisualMetricsPx,
   blockLineMaxEm,
   runClusterGrossEm,
+  jukugoPullDeltaEm,
+  jukugoPushDeltaEm,
+  charItemRubyEl,
 } from '../measure/line-width.js';
 import { addGapPaddingEm } from '../measure/gap-padding-margin.js';
 import {
@@ -107,10 +117,49 @@ function lockLineEndPunctGaps(items, charIdx, hangRight, hung) {
   if (hung) lockEdgeGap(gapElAdjacentBeforeChar(items, charIdx));
 }
 
+function unlockEdgeGap(el) {
+  if (!el || !el.getAttribute || el.getAttribute('data-ts-line-end-gap') !== '1') return;
+  el.removeAttribute('data-ts-line-end-gap');
+  el.style.paddingLeft = '';
+  el.style.marginLeft = '';
+}
+
+/** 挂出去的行尾标点若已折到下行行头：拆盒、解锁缝。 */
+export function restoreDisplacedHangs(block) {
+  if (!block) return 0;
+  var spans = block.querySelectorAll('[data-ts-hang-end="1"]');
+  if (!spans.length) return 0;
+  var layout = buildBlockLayout(block);
+  if (!layout) return 0;
+  var keep = [];
+  for (var L = 0; L < layout.heads.length; L++) {
+    var range = lineItemBounds(layout.items, layout.heads, L);
+    var lastIdx = lastSignificantCharIndexOnLine(layout.items, range.startIndex, range.endIndex + 1);
+    if (lastIdx < 0) continue;
+    var span = charItemHalfPunctSpan(layout.items[lastIdx]);
+    if (span && span.getAttribute('data-ts-hang-end') === '1' && keep.indexOf(span) < 0) {
+      keep.push(span);
+    }
+  }
+  var n = 0;
+  for (var s = 0; s < spans.length; s++) {
+    if (keep.indexOf(spans[s]) >= 0) continue;
+    var prev = spans[s].previousSibling;
+    var next = spans[s].nextSibling;
+    while (prev && prev.nodeType === 3) prev = prev.previousSibling;
+    while (next && next.nodeType === 3) next = next.nextSibling;
+    if (prev && prev.classList && prev.classList.contains('ts-gap')) unlockEdgeGap(prev);
+    if (next && next.classList && next.classList.contains('ts-gap')) unlockEdgeGap(next);
+    unwrapHalfSpan(spans[s]);
+    n += 1;
+  }
+  return n;
+}
+
 /** 压入后合短于行宽：剩余摊进行内缝，顶到正文右缘（不是沟）。
  * 悬挂时盒占内口 0，也靠这一摊才顶在行边进沟。
  * 抽完下行可能变成段末，仍要摊；段末短行本身不会走到第 5 步。 */
-function fillLineLeftover(layout, L, intendedThisChars) {
+export function fillLineLeftover(layout, L, intendedThisChars) {
   var next = buildBlockLayout(layout.block);
   if (!next || L < 0 || L >= next.heads.length) return { gaps: [], addEm: 0 };
   var range = lineItemBounds(next.items, next.heads, L);
@@ -197,6 +246,27 @@ export function applyLineEndOnLine(layout, L, hangOpts, lineCharsHint) {
   }
   if (pullMeasureIdxs.length && layout.emPx > 0) {
     bases.pullBaseEm += runClusterGrossEm(items, pullMeasureIdxs, layout.emPx) - pullMeasureIdxs.length;
+    bases.pullBaseEm += jukugoPullDeltaEm(
+      items,
+      thisStart,
+      nextStart - 1,
+      pullMeasureIdxs,
+      layout.emPx,
+    );
+  }
+  var pushMeasureIdxs = [];
+  if (pushCharsPlan.length) {
+    pushMeasureIdxs = thisIdxs.slice(-pushCharsPlan.length);
+  }
+  if (pushMeasureIdxs.length && layout.emPx > 0) {
+    bases.pushBaseEm += runClusterGrossEm(items, pushMeasureIdxs, layout.emPx) - pushMeasureIdxs.length;
+    bases.pushBaseEm += jukugoPushDeltaEm(
+      items,
+      thisStart,
+      nextStart - 1,
+      pushMeasureIdxs,
+      layout.emPx,
+    );
   }
 
   var range = lineItemBounds(items, heads, L);
@@ -283,7 +353,7 @@ export function applyLineEndOnLine(layout, L, hangOpts, lineCharsHint) {
   appliedGaps = unlocked;
   if (margin && margin.em && margin.em !== '0em') applyMarginToGaps(appliedGaps, margin.em);
   var fill = { gaps: [], addEm: 0 };
-  if (margin && !margin.usedPushFallback) {
+  if (margin && !margin.usedPushFallback && !willMergeJukugoOnLine(layout, L, hangOpts, charItemRubyEl)) {
     if (layout.block) void layout.block.offsetHeight;
     fill = fillLineLeftover(layout, L, ((restored || lineCharsHint) && (restored || lineCharsHint).thisChars) || thisChars);
     for (var f = 0; f < fill.gaps.length; f++) {

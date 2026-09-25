@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-tc-webfont@1.2.0/lxgwwenkaitc-regular.css" />
+    <link rel="stylesheet" href="../src/katsuji/styles/katsuji.css" />
     <style>
       :root {
         font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -288,7 +289,7 @@
       <output id="hang-step-status">自动排版</output>
     </div>
     <p class="note">
-      流水线见 <code>process/TYPESET.md</code>。「下一步」一次做完<strong>一行</strong>（第 3–5 步）。段首行也顶格。段末行跳过行尾处理。本页默认打开<strong>标点悬挂</strong>（<strong>右挂</strong>默认句读 ，。、；<strong>后有空</strong>含问叹；<strong>后有空除了置中固定</strong>在置中时不挂？！；沟左右各 0.5em；<strong>缩进左挂</strong>开、<strong>全局左挂</strong>关）。没有段首缩进时缩进左挂不推盒；勾上<strong>段首缩进 2em</strong>，段首「（《才推进缩进。全局左挂才把各行开括号推进左沟。关掉悬挂即回到 1.0。<strong>置中标点（字体+排版）</strong>换成 LXGW WenKai TC，并打开置中管线：点号两边插缝、可挂、不收半角，成对仍连写。不置中用 LXGW WenKai。步进时左边红 <strong>▶刚</strong> 指刚做完的行，绿 <strong>▷下</strong> 指接下来要做的行。<code>applyHangAvoidance</code> 会把容器设成 <code>line-break: anywhere</code>，排完不改回来。
+      流水线见 <code>process/TYPESET.md</code>。「下一步」一次做完<strong>一行</strong>（第 3–5 步和 5′）。段首行也顶格。段末行跳过第 5 步（含 5′）。本页默认打开<strong>标点悬挂</strong>（<strong>右挂</strong>默认句读 ，。、；<strong>后有空</strong>含问叹；<strong>后有空除了置中固定</strong>在置中时不挂？！；沟左右各 0.5em；<strong>缩进左挂</strong>开、<strong>全局左挂</strong>关）。没有段首缩进时缩进左挂不推盒；勾上<strong>段首缩进 2em</strong>，段首「（《才推进缩进。全局左挂才把各行开括号推进左沟。关掉悬挂即回到 1.0。<strong>置中标点（字体+排版）</strong>换成 LXGW WenKai TC，并打开置中管线：点号两边插缝、可挂、不收半角，成对仍连写。不置中用 LXGW WenKai。步进时左边红 <strong>▶刚</strong> 指刚做完的行，绿 <strong>▷下</strong> 指接下来要做的行。<code>applyHangAvoidance</code> 会把容器设成 <code>line-break: anywhere</code>，排完不改回来。
     </p>
 
     <div class="demo-stage">
@@ -307,7 +308,10 @@
         注音：<ruby>漢<rt>ㄏㄢˋ</rt></ruby><ruby>字<rt>ㄗˋ</rt></ruby>要能断行。振り：<ruby>東京<rt>とうきょう</rt></ruby>の<ruby>漢字<rt>かんじ</rt></ruby>は<ruby>美しい<rt>うつくしい</rt></ruby>と言われ、組 ruby の<ruby>東京都庁<rt>とうきょうとちょう</rt></ruby>まで歩いた。「<ruby>脂硯齋<rt>しけんさい</rt></ruby>」批語と、括弧付き「<ruby>漢<rt>かん</rt></ruby>」も試す。
       </p>
       <p>
-        注音比底宽时，合按 ruby 盒计，不跟底的 Range。缩窄文字框看多行：他<ruby>承<rt>うけたまわ</rt></ruby>るその<ruby>申<rt>もうしで</rt></ruby>は、<ruby>漢<rt>かんかんかん</rt></ruby>の上に長い仮名が乗る。<ruby>囁<rt>ささやき</rt></ruby>く声と<ruby>諸<rt>もろもろ</rt></ruby>の事情を<ruby>聞<rt>ききき</rt></ruby>いてから、<ruby>赢<rt>ㄧㄥˊㄧㄥˊ</rt></ruby>了一局才散。后又<ruby>承<rt>うけたまわ</rt></ruby><ruby>知<rt>し</rt></ruby>った話を繰り返す。行尾若只差半格，合按盒计才抽得动下一字。再写一段把行撑满：<ruby>承<rt>うけたまわ</rt></ruby>った翌日も、<ruby>漢<rt>かんかんかん</rt></ruby>と<ruby>諸<rt>もろもろ</rt></ruby>を並べて歩いた。
+        注音比底宽时，合按 ruby 盒计，不跟底的 Range。缩窄文字框看多行：他<ruby>承<rt>うけたまわ</rt></ruby>るその<ruby>申<rt>もうしで</rt></ruby>は、<ruby>詔<rt>みことのり</rt></ruby>の上に長い仮名が乗る。<ruby>囁<rt>ささやき</rt></ruby>く声と<ruby>諸<rt>もろもろ</rt></ruby>の事情を<ruby>尋<rt>たずね</rt></ruby>てから、<ruby>赢<rt>ㄧㄥˊ</rt></ruby>了一局才散。后又<ruby>承<rt>うけたまわ</rt></ruby>った話を繰り返す。行尾若只差半格，合按盒计才抽得动下一字。再写一段把行撑满：<ruby>承<rt>うけたまわ</rt></ruby>った翌日も、<ruby>詔<rt>みことのり</rt></ruby>と<ruby>諸<rt>もろもろ</rt></ruby>を並べて歩いた。
+      </p>
+      <p>
+        会上先把本日议程念完，后排才轮到注音。有人摊开茶书，说座上不是把四个字当口号，而是「今日之会，<jukugo><ruby>一<rt>いち</rt></ruby><ruby>期<rt>ご</rt></ruby><ruby>一<rt>いち</rt></ruby><ruby>会<rt>え</rt></ruby></jukugo>，再无来日。」书记照录，又从佛典抄了<jukugo><ruby>諸<rt>しょ</rt></ruby><ruby>行<rt>ぎょう</rt></ruby><ruby>無<rt>む</rt></ruby><ruby>常<rt>じょう</rt></ruby></jukugo>，嘱咐四字按一字一音标、走到行尾仍可从字间折开。主席听完：「<jukugo><ruby>承<rt>うけたまわ</rt></ruby><ruby>知<rt>し</rt></ruby></jukugo>了，按这个进纪要。」后排有人反问：手写的<ruby jukugo>自<rt>じ</rt>画<rt>が</rt>自<rt>じ</rt>賛<rt>さん</rt></ruby>怎么收？旁边那颗<ruby jukugo>一<rt>いっ</rt>石<rt>せき</rt>二<rt>に</rt>鳥<rt>ちょう</rt></ruby>呢？争论未决，走廊里还能听见：「<jukugo><ruby>四<rt>し</rt></ruby><ruby>面<rt>めん</rt></ruby><ruby>楚<rt>そ</rt></ruby><ruby>歌<rt>か</rt></ruby></jukugo>……不是四个口号。」散会时已近黄昏，有人把这几条又默了一遍，生怕窄栏从熟语中间劈开时注音对不上底。
       </p>
       </article>
     </div>

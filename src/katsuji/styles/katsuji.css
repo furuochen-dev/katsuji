@@ -24,6 +24,21 @@ span[data-ts-line-start-nowrap] {
   vertical-align: baseline;
 }
 
+jukugo {
+  display: inline;
+}
+
+/* 规范初值就是 space-around；写上是防止页面 reset 把熟语收成挤在头上。
+   属性落在 ruby 盒和 rt 注音盒上（CSS Ruby 两者都吃）。只锁标记过的熟语。 */
+jukugo ruby,
+jukugo ruby > rt,
+ruby[jukugo],
+ruby[jukugo] > rt,
+ruby[data-ts-jukugo-merged],
+ruby[data-ts-jukugo-merged] > rt {
+  ruby-align: space-around;
+}
+
 /* 容器 line-break:anywhere 不进 ruby，断行交还给 UA */
 [data-ts-relax="1"] ruby,
 [data-ts-relax="1"] rt,

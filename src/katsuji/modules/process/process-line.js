@@ -1,9 +1,11 @@
-/** 一行：第 3 步 → 第 4 步 → 第 5 步 */
-import { buildBlockLayout } from '../measure/line-width.js';
+/** 一行：第 3 步 → 第 4 步 → 第 5 步（含 5′） */
+import { buildBlockLayout, charItemRubyEl } from '../measure/line-width.js';
+import { isParagraphLastLine } from '../measure/paragraph-items.js';
+import { mergeJukugoOnLine } from '../core/jukugo.js';
+import { applyLineEndOnLine, snapshotLinePair, fillLineLeftover, restoreDisplacedHangs } from './line-end.js';
 import { hangConfig } from '../core/config.js';
 import { trySpaceOnEdgeStart } from './postprocess/space-on-edge.js';
 import { glueTwoEmKeepPairs, applyComboSymbolsOnLine } from './preprocess/combo.js';
-import { applyLineEndOnLine, snapshotLinePair } from './line-end.js';
 import { lineStepPlan, resolveHangingPunctuation } from './typeset-rules.js';
 import { punctHit } from './postprocess/edge-shared.js';
 
@@ -95,7 +97,17 @@ export function processLine(block, L, hangOpts) {
         }
       }
     }
+    layout = buildBlockLayout(block);
+    if (layout && L < layout.heads.length && !isParagraphLastLine(layout, L)) {
+      var merged = mergeJukugoOnLine(layout, L, hangOpts, charItemRubyEl);
+      if (merged) {
+        if (block) void block.offsetHeight;
+        layout = buildBlockLayout(block) || layout;
+        fillLineLeftover(layout, L, null);
+      }
+    }
   }
 
+  restoreDisplacedHangs(block);
   return lineHit(L, parts, charEl);
 }
