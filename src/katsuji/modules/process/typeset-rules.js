@@ -471,6 +471,7 @@ export function decideHangStrategy(pullAmountEm, pullGapCount, pushAmountEm, pus
   if (!canPush) return 'pull';
   if (!canPull) return 'push';
   if (pullGapCount < 1 || pullAmountEm <= 0) return 'pull';
+  if (pushAmountEm > 0.25 && pullAmountEm < 0.55) return 'pull';
   var pullPerGap = Math.abs(pullAmountEm / pullGapCount);
   var pushPerGap = Math.abs(pushAmountEm / pushGapCount);
   if (Math.abs(pushPerGap - pullPerGap) < HANG_STRATEGY_TIE_EPS) return tieBreak;

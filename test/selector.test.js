@@ -30,7 +30,10 @@ describe('selector', function () {
     assert.equal(decideHangStrategy(0.4, 1, 0.2, 1), 'push');
     assert.equal(decideHangStrategy(0.2, 2, 0.3, 1), 'pull');
     assert.equal(decideHangStrategy(0.3, 1, 0.3, 1), 'pull');
-    assert.equal(decideHangStrategy(0.3, 1, 0.3, 1, 'push'), 'push');
+    assert.equal(decideHangStrategy(0.2, 1, 0.2, 1, 'push'), 'push');
+    assert.equal(decideHangStrategy(0.5, 1, 0.4, 1), 'pull');
+    assert.equal(decideHangStrategy(0.54, 1, 0.3, 1), 'pull');
+    assert.equal(decideHangStrategy(0.55, 1, 0.3, 1), 'push');
   });
 
   it('压入量 ≤ 0 仍压入、可调缝不抽；推出量不是正数或每条缝不到 0.01em 当没这回事', function () {
