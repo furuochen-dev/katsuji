@@ -1,12 +1,12 @@
-/** 组合符号：前面的字收半角盒，中间那条缝删掉 */
+/** 组合符号：一对包一个半角盒，只删这个字自己朝向另一字的缝 */
 import { defaultRoot, getDocument } from '../../env.js';
 import { flattenParagraph, findLineFirstCharIndices, lineItemBounds } from '../../measure/paragraph-items.js';
-import { wrapCharAsHalfPunct, wrapCharAsLineStartOpen, charItemIsHalfPunctWrapped } from '../../core/punct-wrap.js';
+import { wrapCharAsHalfPunct, wrapCharAsLineStartOpen, charItemIsHalfPunctWrapped, charItemHalfPunctSpan } from '../../core/punct-wrap.js';
 import { isInsideRuby } from '../../core/dom-util.js';
 import { isVerticalWritingMode } from '../../core/flow.js';
 import { applyPunctForElement, restorePunctFromConfig } from '../../core/punct-config.js';
-import { isSpaceOnEdgeStart, twoEmKeepRuns } from '../../text/punctuation-rules.js';
-import { comboPairKind, isLayoutWhitespace } from '../typeset-rules.js';
+import { isSpaceOnEdgeStart, isCenterStop, isCenterFixed, twoEmKeepRuns } from '../../text/punctuation-rules.js';
+import { comboPairKind, gapInsertSide, isLayoutWhitespace } from '../typeset-rules.js';
 
 function wrapNoneRunSameNode(node, startOff, endOff) {
   var par = node.parentElement;
@@ -63,53 +63,70 @@ function wrapComboHalf(item) {
   return wrapCharAsHalfPunct(item) || null;
 }
 
-function firstGapBetween(items, leftIdx, rightIdx) {
-  var lo = Math.min(leftIdx, rightIdx);
-  var hi = Math.max(leftIdx, rightIdx);
-  for (var g = lo + 1; g < hi; g++) {
-    if (items[g].type === 'gap') return items[g].el;
+function isOpenGapEl(el) {
+  return !!(el && el.getAttribute && el.getAttribute('data-ts-open-gap') === '1');
+}
+
+function isCenterAlignChar(ch) {
+  return isCenterStop(ch) || isCenterFixed(ch);
+}
+
+function isLineStartOpenWrapped(item) {
+  var span = charItemHalfPunctSpan(item);
+  return !!(span && span.getAttribute('data-ts-line-start-open') === '1');
+}
+
+/** 一对只包一个：左还能包就包左；左是置中或已是顶格前有空盒才包右。置中不进盒。 */
+function pickComboTarget(left, right) {
+  if (!isCenterAlignChar(left.ch) && !charItemIsHalfPunctWrapped(left)) return left;
+  if (
+    !isCenterAlignChar(right.ch) &&
+    !charItemIsHalfPunctWrapped(right) &&
+    (isCenterAlignChar(left.ch) || isLineStartOpenWrapped(left))
+  ) {
+    return right;
   }
   return null;
 }
 
-function lastGapBetween(items, leftIdx, rightIdx) {
-  var lo = Math.min(leftIdx, rightIdx);
-  var hi = Math.max(leftIdx, rightIdx);
+/** 只删被包的字朝向另一字的那条自己的缝。 */
+function facingOwnedGap(items, leftIdx, rightIdx, target, left) {
+  var side = gapInsertSide(target.ch);
+  var g;
+  if (target === left) {
+    if (side !== 'after' && side !== 'both') return null;
+    for (g = leftIdx + 1; g < rightIdx; g++) {
+      if (items[g].type !== 'gap') continue;
+      if (isOpenGapEl(items[g].el)) continue;
+      return items[g].el;
+    }
+    return null;
+  }
+  if (side !== 'before' && side !== 'both') return null;
   var found = null;
-  for (var g = lo + 1; g < hi; g++) {
-    if (items[g].type === 'gap') found = items[g].el;
+  for (g = leftIdx + 1; g < rightIdx; g++) {
+    if (items[g].type !== 'gap') continue;
+    if (isOpenGapEl(items[g].el)) found = items[g].el;
   }
   return found;
 }
 
 /**
- * 成对：前面的字收半角盒，中间第一条缝删掉。
- * 前面已经是半角盒时，改收后面的，合仍少 0.5em。
- * 没有缝（已经收过）则不动。
+ * 成对：包一个半角盒，只删这个字自己朝向另一字的缝。
  */
 export function applyComboPair(items, leftIdx, rightIdx) {
   if (leftIdx < 0 || rightIdx < 0) return null;
   var left = items[leftIdx];
   var right = items[rightIdx];
   if (!left || left.type !== 'char' || !right || right.type !== 'char') return null;
-  var kind = comboPairKind(left.ch, right.ch);
-  if (!kind) return null;
-  var gap = kind === 'wrap-right'
-    ? lastGapBetween(items, leftIdx, rightIdx)
-    : firstGapBetween(items, leftIdx, rightIdx);
-  if (!gap) return null;
-  // 4.1 只删前一条。前面已经是半角盒时，剩下的是后字前有空，不要再收。
-  if (charItemIsHalfPunctWrapped(left) && kind === 'after-before') return null;
-  var wrapped = null;
-  if (kind === 'wrap-right') {
-    wrapped = wrapComboHalf(right);
-  } else if (!charItemIsHalfPunctWrapped(left)) {
-    wrapped = wrapComboHalf(left);
-  } else if (!charItemIsHalfPunctWrapped(right)) {
-    wrapped = wrapComboHalf(right);
-  }
-  if (gap.parentNode) gap.parentNode.removeChild(gap);
-  return wrapped || gap;
+  if (!comboPairKind(left.ch, right.ch)) return null;
+  var target = pickComboTarget(left, right);
+  if (!target) return null;
+  var wrapped = wrapComboHalf(target);
+  if (!wrapped) return null;
+  var drop = facingOwnedGap(items, leftIdx, rightIdx, target, left);
+  if (drop && drop.parentNode) drop.parentNode.removeChild(drop);
+  return wrapped;
 }
 
 /** 压入：接缝 + 串内成对都先收。还没折上来也收，折行器才能看见少的 0.5em。 */
@@ -140,7 +157,7 @@ function significantCharIndicesInRange(items, startIndex, endIndex) {
   return out;
 }
 
-/** 只看本行。4.1 `）（` 两条缝只删前一条；一次只收一对，调用方再扫。 */
+/** 只看本行。一次只收一对，调用方再扫。 */
 export function applyComboSymbolsOnLine(layout, L) {
   if (!layout || L < 0 || L >= layout.heads.length) return [];
   var items = layout.items;

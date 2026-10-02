@@ -145,15 +145,21 @@ export function gapInsertSide(ch) {
   return null;
 }
 
+function insertsBeforeGap(ch) {
+  var side = gapInsertSide(ch);
+  return side === 'before' || side === 'both';
+}
+
 /**
- * 成对：收半角后紧跟标点则收左；置中点号/固定后紧跟前有空则收右。
+ * 成对：收半角后紧跟标点则成对；置中点号/固定后紧跟前有空或收半角则成对。
+ * 中间几条缝看实际插缝（`gapInsertSide`）。
  * @returns {null|'after-before'|'single'|'wrap-right'}
  */
 export function comboPairKind(leftCh, rightCh) {
   if (!isPunctuationChar(leftCh) || !isPunctuationChar(rightCh)) return null;
   var n = punctGapClass(rightCh);
   if (isHalfPunct(leftCh)) {
-    if (n === 'before') return 'after-before';
+    if (insertsBeforeGap(rightCh)) return 'after-before';
     return 'single';
   }
   if ((isCenterStop(leftCh) || isCenterFixed(leftCh)) && n === 'before') return 'wrap-right';
@@ -162,7 +168,7 @@ export function comboPairKind(leftCh, rightCh) {
   var p = punctGapClass(leftCh);
   if (p == null || n == null) return null;
   if (p !== 'after' && n !== 'before') return null;
-  if (p === 'after' && n === 'before') return 'after-before';
+  if (p === 'after' && insertsBeforeGap(rightCh)) return 'after-before';
   return 'single';
 }
 

@@ -119,10 +119,11 @@ describe('置中打开：多标签', function () {
 });
 
 describe('置中打开：第 4 步成对', function () {
-  it('成对闭仍收左', function () {
+  it('成对闭仍收左；右字两边插缝则走 4.1', function () {
     withCenter(function () {
       assert.equal(comboPairKind('）', '」'), 'single');
-      assert.equal(comboPairKind('）', '。'), 'single');
+      assert.equal(comboPairKind('）', '。'), 'after-before');
+      assert.equal(comboPairKind('」', '，'), 'after-before');
       assert.equal(comboPairKind('）', '「'), 'after-before');
       assert.equal(comboDeductionEm('）', '」'), 0.5);
     });
@@ -133,6 +134,7 @@ describe('置中打开：第 4 步成对', function () {
       assert.equal(comboPairKind('。', '」'), 'wrap-right');
       assert.equal(comboDeductionEm('。', '」'), 0.5);
       assert.equal(comboPairKind('。', '，'), null);
+      assert.equal(comboPairKind('，', '。'), null);
       assert.equal(comboPairKind('？', '！'), null);
     });
   });

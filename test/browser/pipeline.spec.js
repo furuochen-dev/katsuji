@@ -438,6 +438,56 @@ test.describe('第 4 步 连写', function () {
     expect(gaps.gaps[0].open).toBe(true);
   });
 
+  test('》《包》；《前缝留下', async function ({ page }) {
+    await openHost(page, 20);
+    await setParagraph(page, '书店《史记》《汉书》旁边');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host);
+      var p = host.querySelector('p');
+      var items = window.Katsuji.flattenParagraph(p);
+      var between = [];
+      var closeHalf = false;
+      var openHalf = false;
+      var take = false;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type === 'char' && items[i].ch === '》') {
+          take = true;
+          var el = items[i].node && items[i].node.parentElement;
+          while (el) {
+            if (el.classList && el.classList.contains('ts-half-punct')) {
+              closeHalf = true;
+              break;
+            }
+            el = el.parentElement;
+          }
+        }
+        if (take && items[i].type === 'gap') {
+          between.push(items[i].el.getAttribute('data-ts-open-gap') === '1');
+        }
+        if (take && items[i].type === 'char' && items[i].ch === '《') {
+          var oel = items[i].node && items[i].node.parentElement;
+          while (oel) {
+            if (oel.classList && oel.classList.contains('ts-half-punct')) {
+              openHalf = true;
+              break;
+            }
+            oel = oel.parentElement;
+          }
+          break;
+        }
+      }
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return { between: between, closeHalf: closeHalf, openHalf: openHalf };
+    });
+    expect(info.closeHalf).toBe(true);
+    expect(info.openHalf).toBe(false);
+    expect(info.between.length).toBe(1);
+    expect(info.between[0]).toBe(true);
+  });
+
   test('跨行的 」和「 不锁中间缝', async function ({ page }) {
     await openHost(page, 8);
     await setParagraph(page, '哈哈哈哈哈哈哈」「哈哈哈哈哈哈哈哈');
@@ -1295,6 +1345,149 @@ test.describe('置中标点', function () {
     expect(info.halves.some(function (h) { return h.ch === '）' && !h.center; })).toBe(true);
     expect(info.halves.some(function (h) { return h.ch === '」' && !h.center; })).toBe(true);
     expect(info.halves.some(function (h) { return h.ch === '。' && !h.center; })).toBe(false);
+  });
+
+  test('。」收右；。两边缝都留下', async function ({ page }) {
+    await openHost(page, 20);
+    await setParagraph(page, '汉字汉字。」汉字汉字汉字');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host);
+      var p = host.querySelector('p');
+      var halves = Array.prototype.map.call(p.querySelectorAll('span.ts-half-punct'), function (el) {
+        return el.textContent;
+      });
+      var items = window.Katsuji.flattenParagraph(p);
+      var stopBefore = false;
+      var stopAfter = false;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type !== 'char' || items[i].ch !== '。') continue;
+        stopBefore =
+          i > 0 &&
+          items[i - 1].type === 'gap' &&
+          items[i - 1].el.getAttribute('data-ts-open-gap') === '1';
+        stopAfter =
+          i + 1 < items.length &&
+          items[i + 1].type === 'gap' &&
+          items[i + 1].el.getAttribute('data-ts-open-gap') !== '1';
+        break;
+      }
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return { halves: halves, stopBefore: stopBefore, stopAfter: stopAfter };
+    });
+    expect(info.halves.some(function (ch) { return ch.indexOf('」') >= 0; })).toBe(true);
+    expect(info.halves.some(function (ch) { return ch.indexOf('。') >= 0; })).toBe(false);
+    expect(info.stopBefore).toBe(true);
+    expect(info.stopAfter).toBe(true);
+  });
+
+  test('》，只收》；，两边缝都留下', async function ({ page }) {
+    await openHost(page, 20);
+    await setParagraph(page, '汉字《书名》，汉字汉字汉字');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host);
+      var p = host.querySelector('p');
+      var halves = Array.prototype.map.call(p.querySelectorAll('span.ts-half-punct'), function (el) {
+        return el.textContent;
+      });
+      var items = window.Katsuji.flattenParagraph(p);
+      var commaBefore = false;
+      var commaAfter = false;
+      var between = 0;
+      var seenClose = false;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type === 'char' && items[i].ch === '》') seenClose = true;
+        if (seenClose && items[i].type === 'gap') between += 1;
+        if (items[i].type === 'char' && items[i].ch === '，') {
+          commaBefore =
+            i > 0 &&
+            items[i - 1].type === 'gap' &&
+            items[i - 1].el.getAttribute('data-ts-open-gap') === '1';
+          commaAfter =
+            i + 1 < items.length &&
+            items[i + 1].type === 'gap' &&
+            items[i + 1].el.getAttribute('data-ts-open-gap') !== '1';
+          break;
+        }
+      }
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return {
+        halves: halves,
+        commaBefore: commaBefore,
+        commaAfter: commaAfter,
+        between: between,
+      };
+    });
+    expect(info.halves.some(function (ch) { return ch.indexOf('》') >= 0; })).toBe(true);
+    expect(info.halves.some(function (ch) { return ch.indexOf('，') >= 0; })).toBe(false);
+    expect(info.commaBefore).toBe(true);
+    expect(info.commaAfter).toBe(true);
+    expect(info.between).toBeGreaterThan(0);
+  });
+
+  test('」，只收」；，不进半角盒，前缝留下', async function ({ page }) {
+    await openHost(page, 20);
+    await setParagraph(page, '汉字汉字」，汉字汉字汉字');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host);
+      var p = host.querySelector('p');
+      var halves = Array.prototype.map.call(p.querySelectorAll('span.ts-half-punct'), function (el) {
+        return el.textContent;
+      });
+      var items = window.Katsuji.flattenParagraph(p);
+      var commaOpen = false;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type !== 'char' || items[i].ch !== '，') continue;
+        commaOpen =
+          i > 0 &&
+          items[i - 1].type === 'gap' &&
+          items[i - 1].el.getAttribute('data-ts-open-gap') === '1';
+        break;
+      }
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return { halves: halves, commaOpen: commaOpen };
+    });
+    expect(info.halves.some(function (ch) { return ch.indexOf('」') >= 0; })).toBe(true);
+    expect(info.halves.some(function (ch) { return ch.indexOf('，') >= 0; })).toBe(false);
+    expect(info.commaOpen).toBe(true);
+  });
+
+  test('，「只收「；，不进半角盒，后缝留下', async function ({ page }) {
+    await openHost(page, 20);
+    await setParagraph(page, '汉字汉字，「汉字汉字汉字');
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      window.Katsuji.setPunctConfig({ punctAlign: 'center' });
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host);
+      var p = host.querySelector('p');
+      var halves = Array.prototype.map.call(p.querySelectorAll('span.ts-half-punct'), function (el) {
+        return el.textContent;
+      });
+      var items = window.Katsuji.flattenParagraph(p);
+      var commaAfter = false;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type !== 'char' || items[i].ch !== '，') continue;
+        commaAfter =
+          i + 1 < items.length &&
+          items[i + 1].type === 'gap' &&
+          items[i + 1].el.getAttribute('data-ts-open-gap') !== '1';
+        break;
+      }
+      window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
+      return { halves: halves, commaAfter: commaAfter };
+    });
+    expect(info.halves.some(function (ch) { return ch.indexOf('「') >= 0; })).toBe(true);
+    expect(info.halves.some(function (ch) { return ch.indexOf('，') >= 0; })).toBe(false);
+    expect(info.commaAfter).toBe(true);
   });
 
   test('行尾；包居中半角盒', async function ({ page }) {
