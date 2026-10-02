@@ -7,6 +7,7 @@ import {
 } from '../../measure/paragraph-items.js';
 import { addGapPaddingEm } from '../../measure/gap-padding-margin.js';
 import { wrapTrailingAfterPunctOnLine } from '../../core/punct-wrap.js';
+import { applyPunctForElement, restorePunctFromConfig } from '../../core/punct-config.js';
 
 function lineVisualWidthEm(layout, startIndex, endIndex) {
   return (
@@ -45,11 +46,19 @@ function applySurplusOnLine(layout, L) {
 }
 
 export function applyLineSurplusPaddingByVisualWidth(block) {
+  applyPunctForElement(block);
   var layout = buildBlockLayout(block);
-  if (!layout) return;
+  if (!layout) {
+    restorePunctFromConfig();
+    return;
+  }
   for (var L = 0; L < layout.heads.length; L++) {
     applySurplusOnLine(layout, L);
     layout = buildBlockLayout(block);
-    if (!layout) return;
+    if (!layout) {
+      restorePunctFromConfig();
+      return;
+    }
   }
+  restorePunctFromConfig();
 }

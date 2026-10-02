@@ -194,7 +194,7 @@ test.describe('Ruby 量宽和撑行', function () {
         t0: lines[0] || '',
         t1: lines[1] || '',
         hungCh: hung ? hung.textContent : '',
-        hangMr: hung ? hung.style.marginRight : '',
+        hangMr: hung ? hung.style.getPropertyValue('margin-inline-end') : '',
       };
     });
     expect(info.t0).toMatch(/。$/);

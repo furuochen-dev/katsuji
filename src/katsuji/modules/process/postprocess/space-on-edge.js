@@ -12,6 +12,7 @@ import {
 } from '../../core/punct-wrap.js';
 import { shouldProtrudeLineStartOpen } from '../typeset-rules.js';
 import { punctHit } from './edge-shared.js';
+import { clearGapEdge } from '../../core/flow.js';
 
 /** 行首是 `前有空`：去掉前空，0.5em 盒只露右边的墨。 */
 export function trySpaceOnEdgeStart(layout, L, hp) {
@@ -24,8 +25,7 @@ export function trySpaceOnEdgeStart(layout, L, hp) {
   if (isCenterStop(items[sig].ch)) {
     var stopGap = gapElAdjacentBeforeChar(items, sig);
     if (!stopGap) return false;
-    stopGap.style.paddingLeft = '0';
-    stopGap.style.marginLeft = '0';
+    clearGapEdge(stopGap);
     stopGap.setAttribute('data-ts-line-start-open-gap', '1');
     return punctHit('space-start', L, [stopGap], { ch: items[sig].ch, charEl: null });
   }
@@ -34,8 +34,7 @@ export function trySpaceOnEdgeStart(layout, L, hp) {
 
   var openGap = gapElAdjacentBeforeChar(items, sig);
   if (openGap) {
-    openGap.style.paddingLeft = '0';
-    openGap.style.marginLeft = '0';
+    clearGapEdge(openGap);
     openGap.setAttribute('data-ts-line-start-open-gap', '1');
   }
   var charEl = wrapCharAsLineStartOpen(items[sig]) || null;

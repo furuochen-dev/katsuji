@@ -6,7 +6,7 @@ Katsuji 是浏览器端脚本：在标点外侧插入 `ts-gap`，再做避头避
 
 ## 下载
 
-任选一种方式拿到 `katsuji.css`、`katsuji.js`。
+任选一种方式拿到 `katsuji.css`、`katsuji.js`。支持 HTML 竖排：页面写 `writing-mode: vertical-rl` 或 `vertical-lr` 即可，不必另装。
 
 
 | 文件                             | 必需  | 说明                                                                |
@@ -211,7 +211,8 @@ Katsuji.applyHangAvoidance(root, {
 ```js
 Katsuji.setPunctConfig({
   jisStrict: true, // JIS 严格：小假名、长音、叠字 → 行头不可（不进两侧无空）
-  vertical: true,  // 竖排：！？→ none；国标竖排九字 U+FE10–FE18 入对应类
+  vertical: true,  // 没有 CSS writing-mode 时手动叠问叹；块已是竖排则不必设
+  rotateColon: true, // 默认 false。日标：竖排：；转 90°，留后有空可收半角；默认国标竖直、两侧无空
   punctAlign: 'center', // 默认 'corner'。置中字体：点号两边插缝、可挂、不收半角；？！固定 1em；成对仍连写。须在 apply 前设置
   gapBefore: null, // 传入字符串则整类替换（null 用预设叠加后的默认）
   gapNone: null,
@@ -225,12 +226,7 @@ Katsuji.applyPunctPreset('default'); // 恢复横排默认三类
 Katsuji.config.punct;
 ```
 
-竖排预设（尚未实现竖排排版，仅分类先行）：
-
-- 全角 `！``？` 从 `after` 移至 `none`
-- `︐︑︒︘`（U+FE10–FE12、FE18）→ `after`
-- `︗`（U+FE17）→ `before`
-- `︓︔︕︖`（U+FE13–FE16）→ `none`（冒号、分号、叹号、问号竖排形；国标中︓︔无横排写法）
+竖排：页面自己写 `writing-mode: vertical-rl` 或 `vertical-lr`。Katsuji 按块检测，不必 `applyPunctPreset('vertical')`。竖排把全角 `？` `！` 从 `后有空` 改到 `两侧无空`（半角 `!?` 不动）。全角 `：` `；` 默认国标竖直，同样改到 `两侧无空`。`setPunctConfig({ rotateColon: true })` 按日标转 90°，竖排里 `：` `；` 留在 `后有空`、可收半角。横排默认 `：` `；` 可收半角。
 
 调试 / 量宽：
 

@@ -99,11 +99,11 @@ describe('置中打开：多标签', function () {
     });
   });
 
-  it('半：挂。为 1，不挂为 0.5；：不挂为 0.5；」不挂为 0.5', function () {
+  it('半：挂。为 1，不挂为 0.5；·不挂为 0.5；」不挂为 0.5', function () {
     withCenter(function () {
       assert.equal(wrapHalfEm('。', 'stops'), 1);
       assert.equal(wrapHalfEm('。', 'none'), 0.5);
-      assert.equal(wrapHalfEm('：', 'stops'), 0.5);
+      assert.equal(wrapHalfEm('·', 'stops'), 0.5);
       assert.equal(wrapHalfEm('」', 'none'), 0.5);
       assert.equal(wrapHalfEm('？', 'all'), 1);
       assert.equal(wrapHalfEm('？', 'exceptCenterFixed'), 0);
@@ -177,7 +177,7 @@ describe('置中打开：抽推基数', function () {
     withCenter(function () {
       assert.equal(shouldWrapMovedLastHalf(['。'], 'stops'), true);
       assert.equal(shouldWrapMovedLastHalf(['。'], 'none'), true);
-      assert.equal(shouldWrapMovedLastHalf(['：'], 'stops'), true);
+      assert.equal(shouldWrapMovedLastHalf(['·'], 'stops'), true);
       assert.equal(shouldWrapMovedLastHalf(['」'], 'none'), true);
       assert.equal(shouldWrapMovedLastHalf(['？'], 'all'), true);
       assert.equal(shouldWrapMovedLastHalf(['？'], 'exceptCenterFixed'), false);
@@ -186,12 +186,12 @@ describe('置中打开：抽推基数', function () {
 
   it('行尾锁后缝：半角盒或置中点号；挂出才锁前缝', function () {
     withCenter(function () {
-      assert.equal(shouldLockLineEndAfterGap('：', 'stops'), true);
+      assert.equal(shouldLockLineEndAfterGap('·', 'stops'), true);
       assert.equal(shouldLockLineEndAfterGap('。', 'stops'), true);
       assert.equal(shouldLockLineEndAfterGap('」', 'none'), true);
       assert.equal(shouldLockLineEndAfterGap('汉', 'stops'), false);
       assert.equal(shouldLockLineEndBeforeGap('。', 'stops'), true);
-      assert.equal(shouldLockLineEndBeforeGap('：', 'stops'), false);
+      assert.equal(shouldLockLineEndBeforeGap('·', 'stops'), false);
       assert.equal(shouldLockLineEndBeforeGap('。', 'none'), false);
       assert.equal(shouldLockLineEndBeforeGap('」', 'none'), false);
     });

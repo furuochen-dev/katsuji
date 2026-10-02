@@ -44,6 +44,7 @@ import {
   lineLostIntendedRun,
   GAP_SHARE_MIN_EM,
 } from './typeset-rules.js';
+import { clearGapEdge, resetGapEdge } from '../core/flow.js';
 
 function significantCharIndices(items, start, endExcl) {
   var out = [];
@@ -89,8 +90,7 @@ function idxBeforeSuffix(idxs, suffixLen) {
 
 function lockEdgeGap(el) {
   if (!el) return null;
-  el.style.paddingLeft = '0';
-  el.style.marginLeft = '0';
+  clearGapEdge(el);
   el.setAttribute('data-ts-line-end-gap', '1');
   return el;
 }
@@ -120,8 +120,7 @@ function lockLineEndPunctGaps(items, charIdx, hangRight, hung) {
 function unlockEdgeGap(el) {
   if (!el || !el.getAttribute || el.getAttribute('data-ts-line-end-gap') !== '1') return;
   el.removeAttribute('data-ts-line-end-gap');
-  el.style.paddingLeft = '';
-  el.style.marginLeft = '';
+  resetGapEdge(el);
 }
 
 /** 挂出去的行尾标点若已折到下行行头：拆盒、解锁缝。 */

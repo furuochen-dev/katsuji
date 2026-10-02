@@ -9,11 +9,7 @@ import {
   DEFAULT_NO_LINE_START,
   rebuildPunctSets,
 } from '../text/punctuation-rules.js';
-
-/** 竖排国标九字 U+FE10–FE18（CJK 竖排标点形） */
-var VERTICAL_GAP_AFTER_ADD = '\uFE10\uFE11\uFE12\uFE18';
-var VERTICAL_GAP_BEFORE_ADD = '\uFE17';
-var VERTICAL_GAP_NONE_ADD = '\uFE13\uFE14\uFE15\uFE16';
+import { isVerticalWritingMode } from './flow.js';
 
 function removeChars(str, toRemove) {
   var drop = Object.create(null);
@@ -26,6 +22,31 @@ function removeChars(str, toRemove) {
   return out;
 }
 
+function appendUnique(base, extra) {
+  var have = Object.create(null);
+  var out = base || '';
+  for (var i = 0; i < out.length; i++) have[out.charAt(i)] = true;
+  var add = extra || '';
+  for (var j = 0; j < add.length; j++) {
+    var c = add.charAt(j);
+    if (have[c]) continue;
+    have[c] = true;
+    out += c;
+  }
+  return out;
+}
+
+function onlyIn(str, allowed) {
+  var out = '';
+  var s = str || '';
+  var allow = allowed || '';
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charAt(i);
+    if (allow.indexOf(c) >= 0) out += c;
+  }
+  return out;
+}
+
 export function resolvePunctStrings(cfg) {
   var gapBefore = DEFAULT_GAP_BEFORE;
   var gapNone = DEFAULT_GAP_NONE;
@@ -33,17 +54,23 @@ export function resolvePunctStrings(cfg) {
 
   if (cfg.vertical) {
     gapAfter = removeChars(gapAfter, '？！');
-    gapNone += '？！' + VERTICAL_GAP_NONE_ADD;
-    gapBefore += VERTICAL_GAP_BEFORE_ADD;
-    gapAfter += VERTICAL_GAP_AFTER_ADD;
+    gapNone = appendUnique(gapNone, '？！');
+    if (!cfg.rotateColon) {
+      gapAfter = removeChars(gapAfter, '：；');
+      gapNone = appendUnique(gapNone, '：；');
+    }
   }
 
   if (cfg.gapBefore != null) gapBefore = cfg.gapBefore;
   if (cfg.gapNone != null) gapNone = cfg.gapNone;
   if (cfg.gapAfter != null) gapAfter = cfg.gapAfter;
 
-  var centerStops = cfg.punctAlign === 'center' ? CENTER_ALIGN_STOPS : '';
-  var centerFixed = cfg.punctAlign === 'center' ? CENTER_ALIGN_FIXED : '';
+  var centerStops = '';
+  var centerFixed = '';
+  if (cfg.punctAlign === 'center') {
+    centerStops = onlyIn(CENTER_ALIGN_STOPS, gapAfter);
+    centerFixed = onlyIn(CENTER_ALIGN_FIXED, gapAfter);
+  }
 
   return {
     gapBefore: gapBefore,
@@ -59,21 +86,40 @@ export function resolvePunctStrings(cfg) {
 export const punctConfig = {
   jisStrict: false,
   vertical: false,
+  rotateColon: false,
   punctAlign: 'corner',
   gapBefore: null,
   gapNone: null,
   gapAfter: null,
 };
 
-function applyResolvedPunct() {
-  var s = resolvePunctStrings(punctConfig);
+function applyResolvedFrom(cfg) {
+  var s = resolvePunctStrings(cfg);
   rebuildPunctSets(s.gapBefore, s.gapNone, s.gapAfter, s.centerStops, s.centerFixed, s.twoEmKeep, s.noLineStart);
+}
+
+function applyResolvedPunct() {
+  applyResolvedFrom(punctConfig);
+}
+
+/** 按块 writing-mode 叠问叹。rotateColon：日标转 90° 则：；留后有空；默认国标竖直，：；两侧无空。 */
+export function applyPunctForElement(el) {
+  applyResolvedFrom({
+    jisStrict: punctConfig.jisStrict,
+    vertical: !!(punctConfig.vertical || isVerticalWritingMode(el)),
+    rotateColon: punctConfig.rotateColon,
+    punctAlign: punctConfig.punctAlign,
+    gapBefore: punctConfig.gapBefore,
+    gapNone: punctConfig.gapNone,
+    gapAfter: punctConfig.gapAfter,
+  });
 }
 
 export function mergePunctConfig(overrides) {
   if (!overrides || typeof overrides !== 'object') return punctConfig;
   if (overrides.jisStrict != null) punctConfig.jisStrict = !!overrides.jisStrict;
   if (overrides.vertical != null) punctConfig.vertical = !!overrides.vertical;
+  if (overrides.rotateColon != null) punctConfig.rotateColon = !!overrides.rotateColon;
   if (overrides.punctAlign === 'center' || overrides.punctAlign === 'corner') {
     punctConfig.punctAlign = overrides.punctAlign;
   }
@@ -90,6 +136,7 @@ export function applyPunctPreset(name) {
     return mergePunctConfig({
       jisStrict: false,
       vertical: false,
+      rotateColon: false,
       punctAlign: 'corner',
       gapBefore: null,
       gapNone: null,
@@ -103,6 +150,10 @@ export function applyPunctPreset(name) {
     return mergePunctConfig({ vertical: true });
   }
   return punctConfig;
+}
+
+export function restorePunctFromConfig() {
+  applyResolvedPunct();
 }
 
 applyResolvedPunct();

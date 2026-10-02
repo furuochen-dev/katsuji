@@ -8,7 +8,7 @@
 ## 目录
 
 ```
-core/         config、dom-util、punct-wrap、punct-config
+core/         config、dom-util、flow、punct-wrap、punct-config
 text/         punctuation-rules
 measure/      段落结构、gap 量宽、行宽
 process/

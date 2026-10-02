@@ -169,13 +169,14 @@
         line-break: auto;
         overflow-wrap: normal;
       }
-      /* 着重号：字下圆点。专名号：字下直线。都走 HTML/CSS，不进合 */
+      /* 着重号不进合。中文：横排字下、竖排字右。
+         竖排走 UA text-emphasis。Firefox 会把点撑成一列，那是引擎的事。 */
       #content .emphasis {
         font-style: normal;
         text-emphasis: filled dot;
-        text-emphasis-position: under;
+        text-emphasis-position: under right;
         -webkit-text-emphasis: filled dot;
-        -webkit-text-emphasis-position: under;
+        -webkit-text-emphasis-position: under right;
       }
       #content .proper-name {
         text-decoration: underline;
@@ -194,8 +195,8 @@
       #content.marked span.ts-gap {
         display: inline-block;
         vertical-align: baseline;
-        width: 0;
-        min-height: 1ex;
+        inline-size: 0;
+        min-block-size: 1ex;
         box-sizing: content-box;
       }
       /* 空隙预览：黄/蓝框、半角 span 描边、margin 色带（可关） */
@@ -284,12 +285,20 @@
         <input id="center-punct" type="checkbox" />
         置中标点（字体+排版）
       </label>
+      <label class="hang-debug">
+        <input id="vertical-mode" type="checkbox" />
+        竖排
+      </label>
+      <label class="hang-debug">
+        <input id="rotate-colon" type="checkbox" />
+        竖排旋转：；
+      </label>
       <button type="button" id="hang-reset">取消调整</button>
       <button type="button" id="hang-step">下一步</button>
       <output id="hang-step-status">自动排版</output>
     </div>
     <p class="note">
-      流水线见 <code>process/TYPESET.md</code>。「下一步」一次做完<strong>一行</strong>（第 3–5 步和 5′）。段首行也顶格。段末行跳过第 5 步（含 5′）。本页默认打开<strong>标点悬挂</strong>（<strong>右挂</strong>默认句读 ，。、；<strong>后有空</strong>含问叹；<strong>后有空除了置中固定</strong>在置中时不挂？！；沟左右各 0.5em；<strong>缩进左挂</strong>开、<strong>全局左挂</strong>关）。没有段首缩进时缩进左挂不推盒；勾上<strong>段首缩进 2em</strong>，段首「（《才推进缩进。全局左挂才把各行开括号推进左沟。关掉悬挂即回到 1.0。<strong>置中标点（字体+排版）</strong>换成 LXGW WenKai TC，并打开置中管线：点号两边插缝、可挂、不收半角，成对仍连写。不置中用 LXGW WenKai。步进时左边红 <strong>▶刚</strong> 指刚做完的行，绿 <strong>▷下</strong> 指接下来要做的行。<code>applyHangAvoidance</code> 会把容器设成 <code>line-break: anywhere</code>，排完不改回来。
+      流水线见 <code>process/TYPESET.md</code>。「下一步」一次做完<strong>一行</strong>（第 3–5 步和 5′）。段首行也顶格。段末行跳过第 5 步（含 5′）。本页默认打开<strong>标点悬挂</strong>（<strong>右挂</strong>默认句读 ，。、；<strong>后有空</strong>含问叹；<strong>后有空除了置中固定</strong>在置中时不挂？！；沟行头行尾侧各 0.5em；<strong>缩进左挂</strong>开、<strong>全局左挂</strong>关）。没有段首缩进时缩进左挂不推盒；勾上<strong>段首缩进 2em</strong>，段首「（《才推进缩进。全局左挂才把各行开括号推进行头沟。关掉悬挂即回到 1.0。<strong>置中标点（字体+排版）</strong>换成 LXGW WenKai TC，并打开置中管线：点号两边插缝、可挂、不收半角，成对仍连写。不置中用 LXGW WenKai。<strong>竖排</strong>只切 CSS <code>writing-mode</code>，问叹改为两侧无空。全角 <code>：</code> <code>；</code> 默认国标竖直、两侧无空。<strong>竖排旋转：；</strong>按日标转 90°，留后有空可收半角。横排默认可收半角。步进时左边红 <strong>▶刚</strong> 指刚做完的行，绿 <strong>▷下</strong> 指接下来要做的行。<code>applyHangAvoidance</code> 会把容器设成 <code>line-break: anywhere</code>，排完不改回来。
     </p>
 
     <div class="demo-stage">
@@ -344,6 +353,9 @@
         var hangLeft = document.getElementById('hang-left');
         var textIndent = document.getElementById('text-indent');
         var centerPunct = document.getElementById('center-punct');
+        var verticalMode = document.getElementById('vertical-mode');
+        var rotateColon = document.getElementById('rotate-colon');
+        var widthLabel = document.querySelector('label[for="content-width"]');
         var sourceHtml = el.innerHTML;
         var hangReset = document.getElementById('hang-reset');
         var hangStep = document.getElementById('hang-step');
@@ -360,8 +372,22 @@
           el.classList.toggle('center-punct-font', on);
           Katsuji.setPunctConfig({ punctAlign: on ? 'center' : 'corner' });
         }
+        function applyColonMode() {
+          Katsuji.setPunctConfig({ rotateColon: !!(rotateColon && rotateColon.checked) });
+        }
         applyCenterMode();
+        applyColonMode();
         Katsuji.apply(el);
+
+        function reapplyMarks() {
+          el.innerHTML = sourceHtml;
+          applyTextIndent();
+          applyWidthEm(slider ? slider.value : 30);
+          applyCenterMode();
+          applyColonMode();
+          Katsuji.apply(el);
+          bump();
+        }
 
         function hangRightValue() {
           for (var i = 0; i < hangRightRadios.length; i++) {
@@ -578,14 +604,19 @@
               continue;
             }
             var cs = getComputedStyle(g);
-            var ml = parseFloat(cs.marginLeft) || 0;
-            var pl = parseFloat(cs.paddingLeft) || 0;
+            var ml = parseFloat(cs.getPropertyValue('margin-inline-start')) || 0;
+            var pl = parseFloat(cs.getPropertyValue('padding-inline-start')) || 0;
+            var vertical = /vertical/.test(cs.writingMode || '');
             var shadow = '';
             if (ml > 0) {
-              shadow = -ml + 'px 0 0 ' + ml + 'px rgba(255, 230, 160, 0.38)';
+              shadow = vertical
+                ? '0 ' + -ml + 'px 0 ' + ml + 'px rgba(255, 230, 160, 0.38)'
+                : -ml + 'px 0 0 ' + ml + 'px rgba(255, 230, 160, 0.38)';
             } else if (ml < 0) {
               var a = -ml;
-              shadow = a + 'px 0 0 ' + a + 'px rgba(255, 230, 160, 0.38)';
+              shadow = vertical
+                ? '0 ' + a + 'px 0 ' + a + 'px rgba(255, 230, 160, 0.38)'
+                : a + 'px 0 0 ' + a + 'px rgba(255, 230, 160, 0.38)';
             }
             g.style.boxShadow = shadow;
             g.title =
@@ -715,8 +746,23 @@
           });
         }
         function applyWidthEm(em) {
-          el.style.maxWidth = em + 'em';
+          var vertical = !!(verticalMode && verticalMode.checked);
+          if (vertical) {
+            el.classList.add('vertical');
+            el.style.writingMode = 'vertical-rl';
+            el.style.maxHeight = em + 'em';
+            el.style.height = em + 'em';
+            el.style.maxWidth = 'none';
+          } else {
+            el.classList.remove('vertical');
+            el.style.writingMode = '';
+            el.style.maxHeight = '';
+            el.style.height = '';
+            el.style.maxWidth = em + 'em';
+          }
           if (out) out.textContent = em + 'em';
+          if (widthLabel) widthLabel.textContent = vertical ? '文字框最大高度' : '文字框最大宽度';
+          if (lineCursors) lineCursors.style.display = vertical ? 'none' : '';
         }
         function applyTextIndent() {
           var on = textIndent && textIndent.checked;
@@ -761,16 +807,13 @@
           });
         }
         if (centerPunct) {
-          centerPunct.addEventListener('change', function () {
-            applyCenterMode();
-            el.innerHTML = sourceHtml;
-            applyTextIndent();
-            Katsuji.apply(el);
-            bump();
-            if (document.fonts && document.fonts.ready) {
-              document.fonts.ready.then(bump).catch(function () {});
-            }
-          });
+          centerPunct.addEventListener('change', reapplyMarks);
+        }
+        if (verticalMode) {
+          verticalMode.addEventListener('change', reapplyMarks);
+        }
+        if (rotateColon) {
+          rotateColon.addEventListener('change', reapplyMarks);
         }
         if (hangReset) {
           hangReset.addEventListener('click', resetToGapsOnly);

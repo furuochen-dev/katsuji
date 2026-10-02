@@ -1,5 +1,6 @@
 /** 熟语：`<jukugo>` 包一字一 ruby；`<ruby jukugo>` 已是一颗。关键字可配。 */
 import { lineItemBounds } from '../measure/paragraph-items.js';
+import { copyHostInlineSize, rectInline, isVerticalWritingMode } from './flow.js';
 
 export function resolveJukugoName(hangOpts) {
   var n = hangOpts && hangOpts.jukugo;
@@ -118,12 +119,12 @@ export function probeJukugoRunWidthPx(rubies) {
       (first.getAttribute && first.getAttribute('data-ts-jukugo-merged') === '1') ||
       rubyPairs(first).length < 2)
   ) {
-    var live = first.getBoundingClientRect().width;
+    var live = rectInline(first.getBoundingClientRect(), isVerticalWritingMode(first));
     return live > 0 ? live : 0;
   }
   var pairs = collectRubyPairs(rubies);
   if (pairs.length < 2 && rubies.length < 2) {
-    var own = first.getBoundingClientRect().width;
+    var own = rectInline(first.getBoundingClientRect(), isVerticalWritingMode(first));
     return own > 0 ? own : 0;
   }
   var doc = first.ownerDocument;
@@ -136,8 +137,7 @@ export function probeJukugoRunWidthPx(rubies) {
   clone.style.top = '0';
   clone.style.visibility = 'hidden';
   clone.style.pointerEvents = 'none';
-  var hostW = host.clientWidth || host.getBoundingClientRect().width;
-  if (hostW > 0) clone.style.width = hostW + 'px';
+  copyHostInlineSize(clone, host);
   host.parentNode.appendChild(clone);
   var srcList = host.querySelectorAll('ruby');
   var dstList = clone.querySelectorAll('ruby');
@@ -155,7 +155,7 @@ export function probeJukugoRunWidthPx(rubies) {
   var w = 0;
   if (run.length && (pairs.length >= 2 || rubies.length >= 2)) {
     var merged = mergeJukugoRubies(run, null);
-    if (merged) w = merged.getBoundingClientRect().width;
+    if (merged) w = rectInline(merged.getBoundingClientRect(), isVerticalWritingMode(merged));
   }
   if (clone.parentNode) clone.parentNode.removeChild(clone);
   return w > 0 ? w : 0;

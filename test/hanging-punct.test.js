@@ -64,14 +64,20 @@ describe('悬挂选项', function () {
 describe('2′ 沟：现有 padding 上再加 0.5em', function () {
   it('开启悬挂时左右都加 0.5em；全关不加', function () {
     assert.deepEqual(hangingPadPlan({ hangLeft: false, hangRight: 'stops' }), {
+      start: true,
+      end: true,
       left: true,
       right: true,
     });
     assert.deepEqual(hangingPadPlan({ hangLeft: true, hangRight: 'stops' }), {
+      start: true,
+      end: true,
       left: true,
       right: true,
     });
     assert.deepEqual(hangingPadPlan({ hangLeft: false, hangRight: 'none' }), {
+      start: false,
+      end: false,
       left: false,
       right: false,
     });

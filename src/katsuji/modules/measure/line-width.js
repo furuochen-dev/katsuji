@@ -2,6 +2,16 @@
 import { win, defaultRoot } from '../env.js';
 import { parseCssLengthToEm } from '../core/dom-util.js';
 import {
+  isVerticalWritingMode,
+  flowOf,
+  rectInline,
+  rectLinePos,
+  rectLineThick,
+  contentInlinePx,
+  readCssPx,
+  HANG_START_MAR,
+} from '../core/flow.js';
+import {
   flattenParagraph,
   findLineFirstCharIndices,
   lineItemBounds,
@@ -14,6 +24,7 @@ import {
   decideHangStrategy,
   GAP_SHARE_MIN_EM,
   lineMaxEm,
+  isLayoutWhitespace,
 } from '../process/typeset-rules.js';
 import { hangPadEmFromBlock } from '../process/hanging-pad.js';
 import { hangConfig } from '../core/config.js';
@@ -36,13 +47,7 @@ export function getBlockEmPx(block) {
 }
 
 export function getBlockContentWidthPx(block) {
-  if (!block) return 0;
-  var w = block.clientWidth || 0;
-  if (!win || !win.getComputedStyle) return w;
-  var cs = win.getComputedStyle(block);
-  var pl = parseFloat(cs.paddingLeft) || 0;
-  var pr = parseFloat(cs.paddingRight) || 0;
-  return Math.max(0, w - pl - pr);
+  return contentInlinePx(block);
 }
 
 export function getBlockIndentEm(block, emPx) {
@@ -72,22 +77,22 @@ function halfEmSpanLayoutPx(span, emPx, glyphPx) {
     return 0.5 * emPx;
   }
   if (span.classList.contains('ts-line-end-half')) {
-    var marPx = span.style.marginLeft
-      ? parseCssLengthToEm(span.style.marginLeft, emPx) * emPx
-      : win?.getComputedStyle
-        ? parseFloat(win.getComputedStyle(span).marginLeft) || 0
-        : -0.5 * emPx;
+    var marPx = span.style.getPropertyValue(HANG_START_MAR)
+      ? parseCssLengthToEm(span.style.getPropertyValue(HANG_START_MAR), emPx) * emPx
+      : readCssPx(span, HANG_START_MAR) || -0.5 * emPx;
     return glyphPx + marPx;
   }
   return glyphPx;
 }
 
-function measureCharGlyphWidthPx(item, emPx) {
-  var w = getItemRect(item).width;
-  return w > 0 ? w : emPx;
+function measureCharGlyphWidthPx(item, emPx, vertical) {
+  var w = rectInline(getItemRect(item), vertical);
+  if (w > 0) return w;
+  if (item && isLayoutWhitespace(item.ch)) return 0;
+  return emPx;
 }
 
-function measureHalfEmCharAdjustPx(items, startIndex, endIndex, emPx) {
+function measureHalfEmCharAdjustPx(items, startIndex, endIndex, emPx, vertical) {
   var total = 0;
   var spanSeen = [];
   for (var i = startIndex; i <= endIndex && i < items.length; i++) {
@@ -100,7 +105,7 @@ function measureHalfEmCharAdjustPx(items, startIndex, endIndex, emPx) {
     for (var j = startIndex; j <= endIndex && j < items.length; j++) {
       if (items[j].type !== 'char') continue;
       if (charItemHalfSpanEl(items[j]) !== span) continue;
-      glyphPx += measureCharGlyphWidthPx(items[j], emPx);
+      glyphPx += measureCharGlyphWidthPx(items[j], emPx, vertical);
     }
     var layoutW = halfEmSpanLayoutPx(span, emPx, glyphPx);
     if (glyphPx > layoutW) total += glyphPx - layoutW;
@@ -115,25 +120,28 @@ function charItemRubyEl(item) {
 }
 
 function rubyFragmentWidthPx(ruby, sampleItem) {
+  var vertical = isVerticalWritingMode(ruby);
   var rects = ruby.getClientRects();
-  if (!rects.length) return ruby.getBoundingClientRect().width;
-  if (rects.length === 1) return rects[0].width;
+  if (!rects.length) return rectInline(ruby.getBoundingClientRect(), vertical);
+  if (rects.length === 1) return rectInline(rects[0], vertical);
   var sample = getItemRect(sampleItem);
-  var midY = sample.top + sample.height / 2;
+  var mid = rectLinePos(sample, vertical) + rectLineThick(sample, vertical) / 2;
   var i;
   for (i = 0; i < rects.length; i++) {
-    if (midY >= rects[i].top && midY <= rects[i].bottom) return rects[i].width;
+    var pos = rectLinePos(rects[i], vertical);
+    var thick = rectLineThick(rects[i], vertical);
+    if (mid >= pos && mid <= pos + thick) return rectInline(rects[i], vertical);
   }
   var best = rects[0];
-  var bestDist = Math.abs(rects[0].top + rects[0].height / 2 - midY);
+  var bestDist = Math.abs(rectLinePos(rects[0], vertical) + rectLineThick(rects[0], vertical) / 2 - mid);
   for (i = 1; i < rects.length; i++) {
-    var d = Math.abs(rects[i].top + rects[i].height / 2 - midY);
+    var d = Math.abs(rectLinePos(rects[i], vertical) + rectLineThick(rects[i], vertical) / 2 - mid);
     if (d < bestDist) {
       best = rects[i];
       bestDist = d;
     }
   }
-  return best.width;
+  return rectInline(best, vertical);
 }
 
 function jukugoName() {
@@ -266,10 +274,11 @@ export function jukugoPushDeltaEm(items, thisStart, thisEnd, pushIdxs, emPx) {
   return (after - before - livePush) / emPx;
 }
 
-function measureLineCharsPx(items, startIndex, endIndex) {
+function measureLineCharsPx(items, startIndex, endIndex, vertical, emPx) {
   var total = 0;
   var rubySeen = [];
   var name = jukugoName();
+  var vert = !!vertical;
   for (var i = startIndex; i <= endIndex && i < items.length; i++) {
     if (items[i].type !== 'char') continue;
     var ruby = charItemRubyEl(items[i]);
@@ -290,7 +299,7 @@ function measureLineCharsPx(items, startIndex, endIndex) {
       total += rubyFragmentWidthPx(ruby, items[i]);
       continue;
     }
-    total += getItemRect(items[i]).width;
+    total += measureCharGlyphWidthPx(items[i], emPx, vert);
   }
   return total;
 }
@@ -301,8 +310,9 @@ export function measureLineVisualMetricsPx(block, items, startIndex, endIndex) {
   var row = lineCharsFromItems(items, startIndex, endIndex);
   var gaps = lineGapPmSumsPx(items, startIndex, endIndex);
   var emPx = getBlockEmPx(block);
-  var charPx = measureLineCharsPx(items, startIndex, endIndex);
-  var halfEmAdjustPx = measureHalfEmCharAdjustPx(items, startIndex, endIndex, emPx);
+  var vertical = isVerticalWritingMode(block);
+  var charPx = measureLineCharsPx(items, startIndex, endIndex, vertical, emPx);
+  var halfEmAdjustPx = measureHalfEmCharAdjustPx(items, startIndex, endIndex, emPx, vertical);
   return {
     text: row.text,
     charCount: row.charCount,
@@ -327,9 +337,10 @@ export function buildBlockLayout(block) {
   var maxPx = getBlockContentWidthPx(block);
   if (emPx <= 0 || maxPx <= 0) return null;
   var items = flattenParagraph(block);
-  var heads = findLineFirstCharIndices(items);
+  var heads = findLineFirstCharIndices(items, isVerticalWritingMode(block));
   return {
     block: block,
+    flow: flowOf(block),
     emPx: emPx,
     maxPx: maxPx,
     maxEm: maxPx / emPx,

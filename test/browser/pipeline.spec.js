@@ -72,7 +72,7 @@ function hangGutter(page) {
       ch: end.textContent,
       overflow: r.right - contentRight,
       leftoverEm: maxEm - visual,
-      mr: end.style.marginRight,
+      mr: end.style.getPropertyValue('margin-inline-end'),
       fs: fs,
     };
   });
@@ -351,7 +351,7 @@ test.describe('第 4 步 连写', function () {
           text: t.slice(-8),
           leftover: maxEm - m.lines[i].lineVisualEm,
           openCh: open ? open.textContent : '',
-          glyphMl: glyph ? glyph.style.marginLeft : '',
+          glyphMl: glyph ? glyph.style.getPropertyValue('margin-inline-start') : '',
         };
       }
       return { text: (m.lines[0] && m.lines[0].text) || '', leftover: null };
@@ -504,7 +504,7 @@ test.describe('第 5 步 行尾 / 段末', function () {
       for (var i = range.startIndex; i <= range.endIndex; i++) {
         if (layout.items[i].type !== 'gap') continue;
         if (layout.items[i].el.getAttribute('data-ts-line-start-open-gap') === '1') continue;
-        pads.push(parseFloat(layout.items[i].el.style.paddingLeft) || 0);
+        pads.push(parseFloat(layout.items[i].el.style.getPropertyValue('padding-inline-start')) || 0);
       }
       var line = window.Katsuji.measureBlockVisualLines(p).lines[lastL];
       return { pads: pads, visual: line.lineVisualEm, max: layout.maxEm, text: line.text };
@@ -512,6 +512,36 @@ test.describe('第 5 步 行尾 / 段末', function () {
     expect(last.visual).toBeLessThan(last.max - 0.75);
     last.pads.forEach(function (pad) {
       expect(pad).toBeLessThan(0.01);
+    });
+  });
+
+  test('源码缩进空白不把段首行量肥，多段第一行也撑', async function ({ page }) {
+    await openHost(page, 16);
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      host.innerHTML =
+        '\n      <p>\n        甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥甲乙丙丁戊己庚辛壬癸，后面还有汉字汉字汉字汉字汉字汉字。\n      </p>\n      <p>\n        子丑寅卯辰巳午未申酉戌亥甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉，后面还有汉字汉字汉字汉字汉字汉字。\n      </p>\n    ';
+      window.Katsuji.apply(host);
+      window.Katsuji.applyHangAvoidance(host);
+      var blocks = host.querySelectorAll('p');
+      var out = [];
+      for (var b = 0; b < blocks.length; b++) {
+        var layout = window.Katsuji.buildBlockLayout(blocks[b]);
+        var m = window.Katsuji.measureBlockVisualLines(blocks[b]);
+        if (!layout || !m.lines.length) continue;
+        out.push({
+          leftover0: +(layout.maxEm && window.Katsuji.blockLineMaxEm(layout, 0) - m.lines[0].lineVisualEm).toFixed(3),
+          overfull0: m.lines[0].lineVisualEm - layout.maxEm,
+          lines: m.lines.length,
+        });
+      }
+      return out;
+    });
+    expect(info.length).toBe(2);
+    info.forEach(function (block) {
+      expect(block.lines).toBeGreaterThan(1);
+      expect(block.overfull0).toBeLessThan(0.35);
+      expect(Math.abs(block.leftover0)).toBeLessThan(0.25);
     });
   });
 
@@ -639,7 +669,7 @@ test.describe('第 5 步 行尾 / 段末', function () {
         usedPushFallback: lineEnd && lineEnd.usedPushFallback,
         gapCount: lineEnd && lineEnd.gaps ? lineEnd.gaps.length : 0,
         em: lineEnd && lineEnd.em,
-        commaMl: commaGap ? commaGap.style.marginLeft : '',
+        commaMl: commaGap ? commaGap.style.getPropertyValue('margin-inline-start') : '',
         locked: !!(commaGap && commaGap.getAttribute('data-ts-line-end-gap') === '1'),
       };
     });
@@ -647,7 +677,7 @@ test.describe('第 5 步 行尾 / 段末', function () {
     expect(after.usedPushFallback).toBe(true);
     expect(after.gapCount).toBe(0);
     expect(after.em == null || after.em === '0em').toBe(true);
-    expect(after.commaMl === '' || after.commaMl === '0px' || after.commaMl === '0em').toBe(true);
+    expect(after.commaMl === '' || after.commaMl === '0' || after.commaMl === '0px' || after.commaMl === '0em').toBe(true);
     expect(after.locked).toBe(true);
   });
 
@@ -760,8 +790,8 @@ test.describe('第 5 步 行尾 / 段末', function () {
         usedPushFallback: lineEnd && lineEnd.usedPushFallback,
         gapCount: lineEnd && lineEnd.gaps ? lineEnd.gaps.length : 0,
         em: lineEnd && lineEnd.em,
-        commaMl: commaGap ? commaGap.style.marginLeft : '',
-        openMl: openGap ? openGap.style.marginLeft : '',
+        commaMl: commaGap ? commaGap.style.getPropertyValue('margin-inline-start') : '',
+        openMl: openGap ? openGap.style.getPropertyValue('margin-inline-start') : '',
         first: first.text,
       };
     });
@@ -770,7 +800,7 @@ test.describe('第 5 步 行尾 / 段末', function () {
     expect(after.gapCount).toBe(1);
     expect(after.em).toMatch(/^\d/);
     expect(after.commaMl).toMatch(/^\d/);
-    expect(after.openMl).toBe('');
+    expect(!(parseFloat(after.openMl) > 0)).toBe(true);
     expect(after.first).not.toMatch(/（$/);
   });
 
@@ -832,7 +862,7 @@ test.describe('第 5 步 行尾 / 段末', function () {
         if ((halves[h].textContent || '') !== '，') continue;
         hung.push({
           hang: halves[h].getAttribute('data-ts-hang-end') === '1',
-          mr: halves[h].style.marginRight,
+          mr: halves[h].style.getPropertyValue('margin-inline-end'),
         });
       }
       return { mama: mama, hung: hung, lines: lines.map(function (l) { return l.text; }) };
@@ -901,7 +931,7 @@ test.describe('标点悬挂', function () {
         padRightEm: pr,
         padLeftEm: pl,
         hung: !!(end && (end.textContent || '').indexOf('。') >= 0),
-        hangMr: end ? end.style.marginRight : '',
+        hangMr: end ? end.style.getPropertyValue('margin-inline-end') : '',
       };
     });
     expect(info.padRightEm).toBeCloseTo(0.7, 2);
@@ -959,7 +989,7 @@ test.describe('标点悬挂', function () {
       for (var i = range.startIndex; i <= range.endIndex; i++) {
         if (layout.items[i].type !== 'char' || layout.items[i].ch !== '，') continue;
         if (i + 1 <= range.endIndex && layout.items[i + 1].type === 'gap') {
-          interiorPad = parseFloat(layout.items[i + 1].el.style.paddingLeft) || 0;
+          interiorPad = parseFloat(layout.items[i + 1].el.style.getPropertyValue('padding-inline-start')) || 0;
         }
         break;
       }
@@ -1089,7 +1119,7 @@ test.describe('标点悬挂', function () {
         text: lines[L] && lines[L].text,
         leftoverEm: maxEm - visual,
         hung: !!(end && (end.textContent || '').indexOf('。') >= 0),
-        hangMr: end ? end.style.marginRight : '',
+        hangMr: end ? end.style.getPropertyValue('margin-inline-end') : '',
       };
     });
     expect(info.hung).toBe(true);
@@ -1267,9 +1297,9 @@ test.describe('置中标点', function () {
     expect(info.halves.some(function (h) { return h.ch === '。' && !h.center; })).toBe(false);
   });
 
-  test('行尾：包居中半角盒', async function ({ page }) {
+  test('行尾；包居中半角盒', async function ({ page }) {
     await openHost(page, 8.5);
-    await setParagraph(page, '一二三四五六七：八九十一二三四五六七八九十abcdefghij');
+    await setParagraph(page, '一二三四五六七；八九十一二三四五六七八九十abcdefghij');
     var info = await page.evaluate(() => {
       var host = document.getElementById('host');
       window.Katsuji.setPunctConfig({ punctAlign: 'center' });
@@ -1278,15 +1308,15 @@ test.describe('置中标点', function () {
         hangingPunctuation: { hangRight: 'stops' },
       });
       var p = host.querySelector('p');
-      var colon = Array.prototype.filter.call(p.querySelectorAll('span.ts-half-punct'), function (el) {
-        return el.textContent === '：';
+      var stop = Array.prototype.filter.call(p.querySelectorAll('span.ts-half-punct'), function (el) {
+        return el.textContent === '；';
       })[0];
-      var glyph = colon && colon.querySelector('[data-ts-center-hang-glyph]');
+      var glyph = stop && stop.querySelector('[data-ts-center-hang-glyph]');
       var items = window.Katsuji.flattenParagraph(p);
       var beforeLocked = false;
       var afterLocked = false;
       for (var i = 0; i < items.length; i++) {
-        if (items[i].type !== 'char' || items[i].ch !== '：') continue;
+        if (items[i].type !== 'char' || items[i].ch !== '；') continue;
         if (i > 0 && items[i - 1].type === 'gap') {
           beforeLocked = items[i - 1].el.getAttribute('data-ts-line-end-gap') === '1';
         }
@@ -1297,10 +1327,10 @@ test.describe('置中标点', function () {
       }
       window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
       return {
-        wrapped: !!colon,
-        center: !!(colon && colon.getAttribute('data-ts-center-hang') === '1'),
-        innerMl: glyph ? glyph.style.marginLeft : '',
-        hung: !!(colon && colon.getAttribute('data-ts-hang-end') === '1'),
+        wrapped: !!stop,
+        center: !!(stop && stop.getAttribute('data-ts-center-hang') === '1'),
+        innerMl: glyph ? glyph.style.getPropertyValue('margin-inline-start') : '',
+        hung: !!(stop && stop.getAttribute('data-ts-hang-end') === '1'),
         beforeLocked: beforeLocked,
         afterLocked: afterLocked,
       };
@@ -1343,7 +1373,7 @@ test.describe('置中标点', function () {
       return {
         hung: !!hung,
         hangEnd: !!(hung && hung.getAttribute('data-ts-hang-end') === '1'),
-        innerMl: glyph ? glyph.style.marginLeft : '',
+        innerMl: glyph ? glyph.style.getPropertyValue('margin-inline-start') : '',
         align: hung ? getComputedStyle(hung).textAlign : '',
         beforeLocked: beforeLocked,
         afterLocked: afterLocked,
@@ -1421,7 +1451,7 @@ test.describe('置中标点', function () {
           lines.push(text);
           for (var g = r.startIndex; g <= r.endIndex && g < layout.items.length; g++) {
             if (layout.items[g].type !== 'gap') continue;
-            var pl = parseFloat(layout.items[g].el.style.paddingLeft) || 0;
+            var pl = parseFloat(layout.items[g].el.style.getPropertyValue('padding-inline-start')) || 0;
             var em = pl / layout.emPx;
             if (em > maxPad) maxPad = em;
           }

@@ -112,7 +112,7 @@ export function wrapHalfEm(ch, hangRight) {
 export function hangingPadPlan(hp) {
   var n = resolveHangingPunctuation(hp);
   var on = n.hangLeft || n.hangLeftIndent || n.hangRight !== 'none';
-  return { left: on, right: on };
+  return { start: on, end: on, left: on, right: on };
 }
 
 export function nextHangPadEm(currentEm) {

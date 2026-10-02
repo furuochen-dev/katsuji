@@ -13,7 +13,7 @@ import {
   DEFAULT_GAP_NONE,
   DEFAULT_NO_LINE_START,
 } from '../src/katsuji/modules/text/punctuation-rules.js';
-import { applyPunctPreset } from '../src/katsuji/modules/core/punct-config.js';
+import { applyPunctPreset, mergePunctConfig } from '../src/katsuji/modules/core/punct-config.js';
 import {
   gapInsertSide,
   isCannotLineStart,
@@ -130,13 +130,40 @@ describe('标点预设', function () {
     }
   });
 
-  it('vertical 把？！改成两侧无空', function () {
+  it('vertical 把？！：；改成两侧无空，不动半角!?', function () {
     applyPunctPreset('vertical');
     try {
       assert.equal(punctGapClass('？'), 'none');
       assert.equal(punctGapClass('！'), 'none');
+      assert.equal(punctGapClass('：'), 'none');
+      assert.equal(punctGapClass('；'), 'none');
       assert.equal(gapInsertSide('？'), null);
+      assert.equal(gapInsertSide('：'), null);
+      assert.equal(gapInsertSide('；'), null);
       assert.equal(punctGapClass('。'), 'after');
+      assert.equal(punctGapClass('!'), 'after');
+      assert.equal(punctGapClass('?'), 'after');
+    } finally {
+      applyPunctPreset('default');
+    }
+  });
+
+  it('默认横排：在后有空，可收半角', function () {
+    assert.ok(DEFAULT_GAP_AFTER.indexOf('：') >= 0);
+    assert.equal(DEFAULT_GAP_NONE.indexOf('：'), -1);
+    assert.equal(punctGapClass('：'), 'after');
+    assert.equal(gapInsertSide('：'), 'after');
+  });
+
+  it('rotateColon 竖排日标：；留在后有空', function () {
+    mergePunctConfig({ rotateColon: true, vertical: true });
+    try {
+      assert.equal(punctGapClass('：'), 'after');
+      assert.equal(gapInsertSide('：'), 'after');
+      assert.equal(punctGapClass('；'), 'after');
+      assert.equal(gapInsertSide('；'), 'after');
+      assert.equal(punctGapClass('？'), 'none');
+      assert.equal(punctGapClass('！'), 'none');
     } finally {
       applyPunctPreset('default');
     }

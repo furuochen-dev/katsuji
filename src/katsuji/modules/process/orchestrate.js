@@ -10,6 +10,7 @@ import { buildBlockLayout } from '../measure/line-width.js';
 import { processLine } from './process-line.js';
 import { applyHangGutter, clearHangGutter } from './hanging-pad.js';
 import { resolveHangingPunctuation } from './typeset-rules.js';
+import { applyPunctForElement, restorePunctFromConfig } from '../core/punct-config.js';
 
 function hangingFromOptions(options, hangOpts) {
   if (options && options.hangingPunctuation != null) return options.hangingPunctuation;
@@ -42,6 +43,7 @@ function typesetBlocks(root) {
 }
 
 function prepareBlock(block, hangingPunctuation) {
+  applyPunctForElement(block);
   clearHangGutter(block);
   resetGapStyles(block);
   unwrapHalfPunctInBlock(block);
@@ -71,6 +73,7 @@ export function applyHangAvoidance(root, options) {
       L += 1;
     }
   });
+  restorePunctFromConfig();
 }
 
 /** 清掉避头尾 / 连写 / 行宽余量，保留 apply() 插入的 ts-gap */
@@ -85,6 +88,7 @@ export function resetHangAdjustments(root) {
     unwrapNoneRuns(block);
     restoreMissingGaps(block);
   });
+  restorePunctFromConfig();
   if (root.nodeType === 1) {
     root.removeAttribute('data-ts-step-phase');
     root.removeAttribute('data-ts-step-block');

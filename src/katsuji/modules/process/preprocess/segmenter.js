@@ -3,6 +3,8 @@ import { getDocument, defaultRoot } from '../../env.js';
 import { shouldSkipSegmenterParent, isInsideRuby } from '../../core/dom-util.js';
 import { flattenParagraph } from '../../measure/paragraph-items.js';
 import { gapInsertSide } from '../typeset-rules.js';
+import { GAP_PAD, clearGapEdge } from '../../core/flow.js';
+import { applyPunctForElement, restorePunctFromConfig } from '../../core/punct-config.js';
 
 function collectTextNodes(root) {
   var list = [];
@@ -31,7 +33,7 @@ function splitTextWithMarkers(text, documentRef) {
       var spanBefore = documentRef.createElement('span');
       spanBefore.setAttribute('class', 'ts-gap');
       spanBefore.setAttribute('data-ts-open-gap', '1');
-      spanBefore.setAttribute('style', 'padding-left: 0px;');
+      spanBefore.setAttribute('style', GAP_PAD + ': 0');
       frag.appendChild(spanBefore);
     }
     buf += ch;
@@ -39,7 +41,7 @@ function splitTextWithMarkers(text, documentRef) {
       frag.appendChild(documentRef.createTextNode(buf));
       var span = documentRef.createElement('span');
       span.setAttribute('class', 'ts-gap');
-      span.setAttribute('style', 'padding-left: 0px;');
+      span.setAttribute('style', GAP_PAD + ': 0');
       frag.appendChild(span);
       buf = '';
     }
@@ -53,6 +55,7 @@ function processTextNode(textNode) {
   if (!text) return;
   var parent = textNode.parentNode;
   if (!parent) return;
+  applyPunctForElement(textNode.parentElement);
   var documentRef = getDocument(textNode);
   if (!documentRef) return;
   var frag = splitTextWithMarkers(text, documentRef);
@@ -67,13 +70,13 @@ export function apply(root) {
   for (var i = 0; i < nodes.length; i++) {
     processTextNode(nodes[i]);
   }
+  restorePunctFromConfig();
 }
 
 export function resetGapStyles(block) {
   var spans = block.querySelectorAll('span.ts-gap');
   for (var i = 0; i < spans.length; i++) {
-    spans[i].style.paddingLeft = '0px';
-    spans[i].style.marginLeft = '0px';
+    clearGapEdge(spans[i]);
     spans[i].removeAttribute('data-ts-head-punct-trail');
     spans[i].removeAttribute('data-ts-line-start-open-gap');
     spans[i].removeAttribute('data-ts-line-end-gap');
@@ -108,7 +111,7 @@ function insertGapBesideChar(item, side, doc) {
   var parent = node.parentNode;
   var span = doc.createElement('span');
   span.setAttribute('class', 'ts-gap');
-  span.setAttribute('style', 'padding-left: 0px;');
+  span.setAttribute('style', GAP_PAD + ': 0');
   if (side === 'before') span.setAttribute('data-ts-open-gap', '1');
   var tv = node.nodeValue || '';
   if (node.nodeType === Node.TEXT_NODE && tv.length === 1 && offset === 0) {
@@ -160,6 +163,7 @@ function findFirstMissingGap(items) {
 export function restoreMissingGaps(block) {
   var documentRef = getDocument(block);
   if (!documentRef || !block) return;
+  applyPunctForElement(block);
   var guard = 0;
   while (guard++ < 200) {
     var job = findFirstMissingGap(flattenParagraph(block));

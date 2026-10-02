@@ -3,6 +3,7 @@ import { getDocument } from '../env.js';
 import { isInsideRuby } from './dom-util.js';
 import { isHalfPunct, isCenterStop } from '../text/punctuation-rules.js';
 import { isHangable } from '../process/typeset-rules.js';
+import { applyHalfBoxStyle, setHangEnd, setHangStart, setInlineShift } from './flow.js';
 
 function unwrapHalfSpansInBlock(block, selector) {
   var halfs = block.querySelectorAll(selector);
@@ -115,7 +116,7 @@ export function glueLineStartOpenToNext(charEl) {
   return wrap;
 }
 
-function wrapCharInHalfSpan(item, className, dataAttr, extraStyle) {
+function wrapCharInHalfSpan(item, className, dataAttr) {
   if (!item || item.type !== 'char') return false;
   var node = item.node;
   var offset = item.offset;
@@ -130,7 +131,6 @@ function wrapCharInHalfSpan(item, className, dataAttr, extraStyle) {
   span.setAttribute('class', className);
   span.setAttribute(dataAttr, '1');
   span.textContent = ch;
-  Object.assign(span.style, extraStyle);
 
   var tv = node.nodeValue;
   if (tv.length === 1 && offset === 0) {
@@ -150,29 +150,21 @@ function wrapCharInHalfSpan(item, className, dataAttr, extraStyle) {
 
 export function protrudeHalfPunctEnd(span) {
   if (!span) return span;
-  span.style.marginRight = '-0.5em';
+  setHangEnd(span);
   span.setAttribute('data-ts-hang-end', '1');
   return span;
 }
 
 export function protrudeHalfPunctStart(span) {
   if (!span) return span;
-  span.style.marginLeft = '-0.5em';
+  setHangStart(span);
   span.setAttribute('data-ts-hang-start', '1');
   return span;
 }
 
 export function wrapCharAsHalfPunct(item) {
-  return wrapCharInHalfSpan(item, 'ts-half-punct', 'data-ts-half-punct', {
-    display: 'inline-block',
-    width: '0.5em',
-    textAlign: 'left',
-    textIndent: '0',
-    verticalAlign: 'baseline',
-    overflow: 'visible',
-    minWidth: '0',
-    boxSizing: 'content-box',
-  });
+  var span = wrapCharInHalfSpan(item, 'ts-half-punct', 'data-ts-half-punct');
+  return span ? applyHalfBoxStyle(span) : span;
 }
 
 function isLayoutWhitespace(ch) {
@@ -202,19 +194,12 @@ export function wrapTrailingAfterPunctOnLine(items, startIndex, endExcl) {
 /** 行首开括号：0.5em 盒与行尾半角相同；里边只拉 margin，露出右边的墨 */
 /** 挂置中点号：0.5em 盒，字居中，再由调用方推出 0.5em */
 export function wrapCharAsCenterHang(item) {
-  var span = wrapCharInHalfSpan(item, 'ts-half-punct', 'data-ts-center-hang', {
-    display: 'inline-block',
-    width: '0.5em',
-    textIndent: '0',
-    verticalAlign: 'baseline',
-    overflow: 'visible',
-    minWidth: '0',
-    boxSizing: 'content-box',
-  });
+  var span = wrapCharInHalfSpan(item, 'ts-half-punct', 'data-ts-center-hang');
   if (!span) return span;
+  applyHalfBoxStyle(span);
   var inner = span.ownerDocument.createElement('span');
   inner.setAttribute('data-ts-center-hang-glyph', '1');
-  inner.style.marginLeft = '-0.25em';
+  setInlineShift(inner, -0.25);
   inner.textContent = span.textContent;
   span.textContent = '';
   span.appendChild(inner);
@@ -233,19 +218,12 @@ export function wrapLineEndPunct(item, hangRight) {
 }
 
 export function wrapCharAsLineStartOpen(item) {
-  var span = wrapCharInHalfSpan(item, 'ts-half-punct', 'data-ts-line-start-open', {
-    display: 'inline-block',
-    width: '0.5em',
-    textIndent: '0',
-    verticalAlign: 'baseline',
-    overflow: 'visible',
-    minWidth: '0',
-    boxSizing: 'content-box',
-  });
+  var span = wrapCharInHalfSpan(item, 'ts-half-punct', 'data-ts-line-start-open');
   if (!span) return span;
+  applyHalfBoxStyle(span);
   var inner = span.ownerDocument.createElement('span');
   inner.setAttribute('data-ts-line-start-open-glyph', '1');
-  inner.style.marginLeft = '-0.5em';
+  setInlineShift(inner, -0.5);
   inner.textContent = span.textContent;
   span.textContent = '';
   span.appendChild(inner);

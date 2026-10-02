@@ -3,6 +3,8 @@ import { defaultRoot, getDocument } from '../../env.js';
 import { flattenParagraph, findLineFirstCharIndices, lineItemBounds } from '../../measure/paragraph-items.js';
 import { wrapCharAsHalfPunct, wrapCharAsLineStartOpen, charItemIsHalfPunctWrapped } from '../../core/punct-wrap.js';
 import { isInsideRuby } from '../../core/dom-util.js';
+import { isVerticalWritingMode } from '../../core/flow.js';
+import { applyPunctForElement, restorePunctFromConfig } from '../../core/punct-config.js';
 import { isSpaceOnEdgeStart, twoEmKeepRuns } from '../../text/punctuation-rules.js';
 import { comboPairKind, isLayoutWhitespace } from '../typeset-rules.js';
 
@@ -25,6 +27,7 @@ function wrapNoneRunSameNode(node, startOff, endOff) {
 
 /** `两字一体` 成对绑在一起，中间不折行。相邻无空不一律绑 */
 export function glueTwoEmKeepPairs(block) {
+  applyPunctForElement(block);
   var guard = 0;
   while (guard++ < 32) {
     var items = flattenParagraph(block);
@@ -151,13 +154,14 @@ export function applyComboSymbolsOnLine(layout, L) {
 }
 
 export function applyComboSymbolsBlock(block, limit) {
+  applyPunctForElement(block);
   glueTwoEmKeepPairs(block);
   void block.offsetHeight;
   var applied = [];
   var guard = 0;
   while (guard++ < 64) {
     var items = flattenParagraph(block);
-    var heads = findLineFirstCharIndices(items);
+    var heads = findLineFirstCharIndices(items, isVerticalWritingMode(block));
     if (!heads.length) {
       for (var j = 0; j < items.length; j++) {
         if (items[j].type === 'char') {
@@ -193,4 +197,5 @@ export function applyComboSymbols(root) {
     if (block.closest && block.closest('script, style, textarea, noscript, pre, code')) continue;
     applyComboSymbolsBlock(block);
   }
+  restorePunctFromConfig();
 }

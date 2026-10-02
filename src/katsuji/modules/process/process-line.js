@@ -8,6 +8,7 @@ import { trySpaceOnEdgeStart } from './postprocess/space-on-edge.js';
 import { glueTwoEmKeepPairs, applyComboSymbolsOnLine } from './preprocess/combo.js';
 import { lineStepPlan, resolveHangingPunctuation } from './typeset-rules.js';
 import { punctHit } from './postprocess/edge-shared.js';
+import { applyPunctForElement } from '../core/punct-config.js';
 
 function collectGapsFromParts(parts) {
   var gaps = [];
@@ -47,6 +48,7 @@ function lineHit(L, parts, charEl) {
 
 export function processLine(block, L, hangOpts) {
   hangOpts = hangOpts || hangConfig;
+  applyPunctForElement(block);
   var hp = resolveHangingPunctuation(hangOpts.hangingPunctuation);
   var layout = buildBlockLayout(block);
   if (!layout || L < 0 || L >= layout.heads.length) return null;

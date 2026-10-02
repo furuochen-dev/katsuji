@@ -1,6 +1,7 @@
 /** 段落 → 行项序列（char/gap）+ 视觉分行 + 按界收 gap */
 import { doc } from '../env.js';
 import { shouldSkipTextParent } from '../core/dom-util.js';
+import { rectLinePos, rectLineThick } from '../core/flow.js';
 
 export function flattenParagraph(block) {
   var items = [];
@@ -54,21 +55,27 @@ export function getItemRect(item) {
   return item.el.getBoundingClientRect();
 }
 
-export function findLineFirstCharIndices(items) {
+export function findLineFirstCharIndices(items, vertical) {
   var heads = [];
-  var prevTop = null;
-  var prevH = 0;
+  var prevPos = null;
+  var prevThick = 0;
+  var vert = !!vertical;
   for (var i = 0; i < items.length; i++) {
     if (items[i].type !== 'char') continue;
+    var ch0 = items[i].ch;
+    if (ch0 === '\n' || ch0 === '\r' || ch0 === ' ' || ch0 === '\t' || ch0 === '\u00a0' || ch0 === '\u3000') {
+      continue;
+    }
     var r = getItemRect(items[i]);
-    if (prevTop === null) {
+    if (prevPos === null) {
       heads.push(i);
     } else {
-      var tol = Math.max(5, Math.max(r.height, prevH) * 0.35);
-      if (Math.abs(r.top - prevTop) > tol) heads.push(i);
+      var thick = rectLineThick(r, vert);
+      var tol = Math.max(5, Math.max(thick, prevThick) * 0.35);
+      if (Math.abs(rectLinePos(r, vert) - prevPos) > tol) heads.push(i);
     }
-    prevTop = r.top;
-    prevH = r.height;
+    prevPos = rectLinePos(r, vert);
+    prevThick = rectLineThick(r, vert);
   }
   var kept = [];
   for (var L = 0; L < heads.length; L++) {
