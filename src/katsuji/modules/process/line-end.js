@@ -124,11 +124,27 @@ function unlockEdgeGap(el) {
 }
 
 /** 挂出去的行尾标点若已折到下行行头：拆盒、解锁缝。 */
-export function restoreDisplacedHangs(block) {
+function layoutOptsFrom(layout, L, frozenHeadCharCounts) {
+  var frozen =
+    frozenHeadCharCounts ||
+    (layout && layout.headCharCounts ? layout.headCharCounts.slice(0, (L == null ? 0 : L) + 1) : null);
+  if (!layout) return { frozenHeadCharCounts: frozen };
+  return {
+    frozenHeadCharCounts: frozen,
+    emPx: layout.emPx,
+    maxPx: layout.maxPx,
+    indentEm: layout.indentEm,
+    hangPadEm: layout.hangPadEm,
+    vertical: layout.flow && layout.flow.vertical,
+    flow: layout.flow,
+  };
+}
+
+export function restoreDisplacedHangs(block, frozenHeadCharCounts) {
   if (!block) return 0;
   var spans = block.querySelectorAll('[data-ts-hang-end="1"]');
   if (!spans.length) return 0;
-  var layout = buildBlockLayout(block);
+  var layout = buildBlockLayout(block, { frozenHeadCharCounts: frozenHeadCharCounts });
   if (!layout) return 0;
   var keep = [];
   for (var L = 0; L < layout.heads.length; L++) {
@@ -159,7 +175,7 @@ export function restoreDisplacedHangs(block) {
  * 悬挂时盒占内口 0，也靠这一摊才顶在行边进沟。
  * 抽完下行可能变成段末，仍要摊；段末短行本身不会走到第 5 步。 */
 export function fillLineLeftover(layout, L, intendedThisChars) {
-  var next = buildBlockLayout(layout.block);
+  var next = buildBlockLayout(layout.block, layoutOptsFrom(layout, L));
   if (!next || L < 0 || L >= next.heads.length) return { gaps: [], addEm: 0 };
   var range = lineItemBounds(next.items, next.heads, L);
   var lastIdx = lastSignificantCharIndexOnLine(next.items, range.startIndex, range.endIndex + 1);
@@ -182,7 +198,7 @@ export function fillLineLeftover(layout, L, intendedThisChars) {
 /** 抽完或抽不动：还在行尾的可挂字仍要挂（抽上来的若是宽 ruby，UA 折不回来）。 */
 function hangRemainingLineEnd(layout, L, hp) {
   if (!layout || !layout.block) return null;
-  var next = buildBlockLayout(layout.block);
+  var next = buildBlockLayout(layout.block, layoutOptsFrom(layout, L));
   if (!next || L < 0 || L >= next.heads.length) return null;
   var range = lineItemBounds(next.items, next.heads, L);
   var lastIdx = lastSignificantCharIndexOnLine(next.items, range.startIndex, range.endIndex + 1);

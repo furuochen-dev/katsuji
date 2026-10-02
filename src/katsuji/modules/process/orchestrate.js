@@ -66,10 +66,11 @@ export function applyHangAvoidance(root, options) {
   eachTypesetBlock(root, function (block) {
     prepareBlock(block, hangingPunctuation);
     var L = 0;
+    var hint = null;
     while (true) {
-      var layout = buildBlockLayout(block);
-      if (!layout || L >= layout.heads.length) break;
-      processLine(block, L, hangOpts);
+      var hit = processLine(block, L, hangOpts, hint);
+      if (!hit) break;
+      hint = { headCharCounts: hit.headCharCounts, metrics: hit.metrics };
       L += 1;
     }
   });

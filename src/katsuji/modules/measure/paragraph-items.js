@@ -38,10 +38,47 @@ export function flattenParagraph(block) {
   return items;
 }
 
+function isHeadChar(ch) {
+  return ch !== '\n' && ch !== '\r' && ch !== ' ' && ch !== '\t' && ch !== '\u00a0' && ch !== '\u3000';
+}
+
+export function significantCharCountBefore(items, itemIndex) {
+  var n = 0;
+  var end = itemIndex < 0 ? items.length : Math.min(itemIndex, items.length);
+  for (var i = 0; i < end; i++) {
+    if (items[i].type !== 'char') continue;
+    if (!isHeadChar(items[i].ch)) continue;
+    n++;
+  }
+  return n;
+}
+
+export function itemIndexAtSignificantChar(items, charCount) {
+  var n = 0;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].type !== 'char') continue;
+    if (!isHeadChar(items[i].ch)) continue;
+    if (n === charCount) return i;
+    n++;
+  }
+  return -1;
+}
+
+export function headCharCountsFromHeads(items, heads) {
+  var out = [];
+  for (var i = 0; i < heads.length; i++) out.push(significantCharCountBefore(items, heads[i]));
+  return out;
+}
+
+var measureRange = null;
+
 export function getItemRect(item) {
   if (item.type === 'char') {
     var documentRef = item.node.ownerDocument || doc;
-    var range = documentRef.createRange();
+    if (!measureRange || measureRange.startContainer.ownerDocument !== documentRef) {
+      measureRange = documentRef.createRange();
+    }
+    var range = measureRange;
     range.setStart(item.node, item.offset);
     range.setEnd(item.node, item.offset + 1);
     var r = range.getBoundingClientRect();
@@ -55,17 +92,14 @@ export function getItemRect(item) {
   return item.el.getBoundingClientRect();
 }
 
-export function findLineFirstCharIndices(items, vertical) {
-  var heads = [];
+function measureHeadsFrom(items, vertical, startAt, prefixHeads) {
+  var heads = prefixHeads ? prefixHeads.slice() : [];
   var prevPos = null;
   var prevThick = 0;
   var vert = !!vertical;
-  for (var i = 0; i < items.length; i++) {
+  for (var i = startAt; i < items.length; i++) {
     if (items[i].type !== 'char') continue;
-    var ch0 = items[i].ch;
-    if (ch0 === '\n' || ch0 === '\r' || ch0 === ' ' || ch0 === '\t' || ch0 === '\u00a0' || ch0 === '\u3000') {
-      continue;
-    }
+    if (!isHeadChar(items[i].ch)) continue;
     var r = getItemRect(items[i]);
     if (prevPos === null) {
       heads.push(i);
@@ -83,6 +117,27 @@ export function findLineFirstCharIndices(items, vertical) {
     if (firstSignificantCharIndexOnLine(items, heads[L], lineEnd) >= 0) kept.push(heads[L]);
   }
   return kept;
+}
+
+/** frozenHeadCharCounts：已排完行的行头（第几个实字）。从最后一项起重新量。 */
+export function findLineFirstCharIndices(items, vertical, frozenHeadCharCounts) {
+  var frozen = frozenHeadCharCounts && frozenHeadCharCounts.length ? frozenHeadCharCounts : null;
+  if (frozen) {
+    var prefix = [];
+    var ok = true;
+    for (var f = 0; f < frozen.length; f++) {
+      var idx = itemIndexAtSignificantChar(items, frozen[f]);
+      if (idx < 0) {
+        ok = false;
+        break;
+      }
+      prefix.push(idx);
+    }
+    if (ok) {
+      return measureHeadsFrom(items, vertical, prefix[prefix.length - 1], prefix.slice(0, -1));
+    }
+  }
+  return measureHeadsFrom(items, vertical, 0, []);
 }
 
 export function lineItemBounds(items, heads, lineIndex) {
@@ -120,9 +175,7 @@ export function firstSignificantCharIndexOnLine(items, lineStart, lineEnd) {
   for (var i = lineStart; i < lineEnd && i < items.length; i++) {
     if (items[i].type !== 'char') continue;
     var ch = items[i].ch;
-    if (ch === '\n' || ch === '\r' || ch === ' ' || ch === '\t' || ch === '\u00a0' || ch === '\u3000') {
-      continue;
-    }
+    if (!isHeadChar(ch)) continue;
     return i;
   }
   return -1;
@@ -133,9 +186,7 @@ export function lastSignificantCharIndexOnLine(items, lineStart, lineEndExcl) {
   for (var i = end - 1; i >= lineStart; i--) {
     if (items[i].type !== 'char') continue;
     var ch2 = items[i].ch;
-    if (ch2 === '\n' || ch2 === '\r' || ch2 === ' ' || ch2 === '\t' || ch2 === '\u00a0' || ch2 === '\u3000') {
-      continue;
-    }
+    if (!isHeadChar(ch2)) continue;
     return i;
   }
   return -1;

@@ -28,6 +28,7 @@ function wrapNoneRunSameNode(node, startOff, endOff) {
 /** `两字一体` 成对绑在一起，中间不折行。相邻无空不一律绑 */
 export function glueTwoEmKeepPairs(block) {
   applyPunctForElement(block);
+  var changed = false;
   var guard = 0;
   while (guard++ < 32) {
     var items = flattenParagraph(block);
@@ -44,9 +45,11 @@ export function glueTwoEmKeepPairs(block) {
       found = { node: node, startOff: runs[0].start, endOff: runs[0].end };
       break;
     }
-    if (!found) return;
+    if (!found) return changed;
     wrapNoneRunSameNode(found.node, found.startOff, found.endOff);
+    changed = true;
   }
+  return changed;
 }
 
 export function glueAdjacentNonePunct(block) {

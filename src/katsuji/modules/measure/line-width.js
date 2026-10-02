@@ -14,6 +14,7 @@ import {
 import {
   flattenParagraph,
   findLineFirstCharIndices,
+  headCharCountsFromHeads,
   lineItemBounds,
   lineCharsFromItems,
   getItemRect,
@@ -331,23 +332,26 @@ function lineVisualWidthEm(layout, startIndex, endIndex) {
   );
 }
 
-export function buildBlockLayout(block) {
+export function buildBlockLayout(block, opts) {
+  opts = opts || {};
   void block.offsetHeight;
-  var emPx = getBlockEmPx(block);
-  var maxPx = getBlockContentWidthPx(block);
+  var emPx = opts.emPx > 0 ? opts.emPx : getBlockEmPx(block);
+  var maxPx = opts.maxPx > 0 ? opts.maxPx : getBlockContentWidthPx(block);
   if (emPx <= 0 || maxPx <= 0) return null;
   var items = flattenParagraph(block);
-  var heads = findLineFirstCharIndices(items, isVerticalWritingMode(block));
+  var vertical = opts.vertical != null ? !!opts.vertical : isVerticalWritingMode(block);
+  var heads = findLineFirstCharIndices(items, vertical, opts.frozenHeadCharCounts);
   return {
     block: block,
-    flow: flowOf(block),
+    flow: opts.flow || flowOf(block),
     emPx: emPx,
     maxPx: maxPx,
     maxEm: maxPx / emPx,
-    indentEm: getBlockIndentEm(block, emPx),
-    hangPadEm: hangPadEmFromBlock(block),
+    indentEm: opts.indentEm != null ? opts.indentEm : getBlockIndentEm(block, emPx),
+    hangPadEm: opts.hangPadEm != null ? opts.hangPadEm : hangPadEmFromBlock(block),
     items: items,
     heads: heads,
+    headCharCounts: headCharCountsFromHeads(items, heads),
   };
 }
 
