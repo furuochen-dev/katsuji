@@ -1533,7 +1533,7 @@ test.describe('置中标点', function () {
     expect(info.stopAfter).toBe(false);
   });
 
-  test('》，包，居中半角且收》（空朝内）；，双侧无缝', async function ({ page }) {
+  test('》，只包》；，不进盒；朝内缝与，双侧缝去掉', async function ({ page }) {
     await openHost(page, 20);
     await setParagraph(page, '汉字《书名》，汉字汉字汉字');
     var info = await page.evaluate(() => {
@@ -1560,13 +1560,13 @@ test.describe('置中标点', function () {
       window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
       return { halves: halves, commaBefore: commaBefore, commaAfter: commaAfter };
     });
-    expect(info.halves.some(function (h) { return h.ch.indexOf('，') >= 0 && h.center; })).toBe(true);
+    expect(info.halves.some(function (h) { return h.ch.indexOf('，') >= 0; })).toBe(false);
     expect(info.halves.some(function (h) { return h.ch.indexOf('》') >= 0 && !h.center; })).toBe(true);
     expect(info.commaBefore).toBe(false);
     expect(info.commaAfter).toBe(false);
   });
 
-  test('」，包，居中半角且收」（空朝内）', async function ({ page }) {
+  test('」，只包」；，不进盒', async function ({ page }) {
     await openHost(page, 20);
     await setParagraph(page, '汉字汉字」，汉字汉字汉字');
     var info = await page.evaluate(() => {
@@ -1584,11 +1584,11 @@ test.describe('置中标点', function () {
       window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
       return { halves: halves };
     });
-    expect(info.halves.some(function (h) { return h.ch.indexOf('，') >= 0 && h.center; })).toBe(true);
+    expect(info.halves.some(function (h) { return h.ch.indexOf('，') >= 0; })).toBe(false);
     expect(info.halves.some(function (h) { return h.ch.indexOf('」') >= 0 && !h.center; })).toBe(true);
   });
 
-  test('，「包，居中半角且收「（空朝内）', async function ({ page }) {
+  test('，「只包「；，不进盒', async function ({ page }) {
     await openHost(page, 20);
     await setParagraph(page, '汉字汉字，「汉字汉字汉字');
     var info = await page.evaluate(() => {
@@ -1606,11 +1606,11 @@ test.describe('置中标点', function () {
       window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
       return { halves: halves };
     });
-    expect(info.halves.some(function (h) { return h.ch.indexOf('，') >= 0 && h.center; })).toBe(true);
+    expect(info.halves.some(function (h) { return h.ch.indexOf('，') >= 0; })).toBe(false);
     expect(info.halves.some(function (h) { return h.ch.indexOf('「') >= 0 && !h.center; })).toBe(true);
   });
 
-  test('」。包。居中半角且收」（空朝内）', async function ({ page }) {
+  test('」。只包」；。不进盒（双侧缝去掉）', async function ({ page }) {
     await openHost(page, 20);
     await setParagraph(page, '汉字汉字」。汉字汉字汉字');
     var info = await page.evaluate(() => {
@@ -1625,11 +1625,22 @@ test.describe('置中标点', function () {
           center: el.getAttribute('data-ts-center-hang') === '1',
         };
       });
+      var items = window.Katsuji.flattenParagraph(p);
+      var stopBefore = false;
+      var stopAfter = false;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type !== 'char' || items[i].ch !== '。') continue;
+        stopBefore = i > 0 && items[i - 1].type === 'gap';
+        stopAfter = i + 1 < items.length && items[i + 1].type === 'gap';
+        break;
+      }
       window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
-      return { halves: halves };
+      return { halves: halves, stopBefore: stopBefore, stopAfter: stopAfter };
     });
-    expect(info.halves.some(function (h) { return h.ch.indexOf('。') >= 0 && h.center; })).toBe(true);
+    expect(info.halves.some(function (h) { return h.ch.indexOf('。') >= 0; })).toBe(false);
     expect(info.halves.some(function (h) { return h.ch.indexOf('」') >= 0 && !h.center; })).toBe(true);
+    expect(info.stopBefore).toBe(false);
+    expect(info.stopAfter).toBe(false);
   });
 
   test('行尾；包居中半角盒', async function ({ page }) {

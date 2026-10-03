@@ -141,23 +141,25 @@ describe('置中打开：第 4 步成对', function () {
       assert.equal(comboDeductionEm('。', '」'), 0.5);
       assert.equal(comboCenterWrapsInwardPartner('。', '」'), false);
       assert.equal(comboCenterWrapsInwardPartner('」', '。'), true);
-      assert.equal(comboDeductionEm('」', '。'), 1);
+      assert.equal(comboDeductionEm('」', '。'), 0.5);
       assert.equal(comboPairKind('。', '，'), null);
       assert.equal(comboPairKind('：', '；'), null);
       assert.equal(comboPairKind('？', '！'), null);
     });
   });
 
-  it('置中+前有空空朝内也包；前有空+置中空朝外不包另一字', function () {
+  it('空朝内：只包缝主字（基数 0.5）；空朝外不包侧字', function () {
     withCenter(function () {
       assert.equal(comboPairKind('，', '「'), 'center');
       assert.equal(comboPairKind('：', '（'), 'center');
       assert.equal(comboPairKind('。', '「'), 'center');
       assert.equal(comboCenterWrapsInwardPartner('。', '「'), true);
-      assert.equal(comboDeductionEm('。', '「'), 1);
+      assert.equal(comboDeductionEm('。', '「'), 0.5);
       assert.equal(comboPairKind('「', '，'), 'center');
       assert.equal(comboCenterWrapsInwardPartner('「', '，'), false);
       assert.equal(comboDeductionEm('「', '，'), 0.5);
+      assert.equal(comboCenterWrapsInwardPartner('》', '，'), true);
+      assert.equal(comboDeductionEm('》', '，'), 0.5);
     });
   });
 
@@ -212,7 +214,7 @@ describe('置中打开：抽推基数', function () {
     });
   });
 
-  it('抽 」。：」收半角 + 。居中，末字不重复扣 → 1', function () {
+  it('抽 」。：」收半角 + 。行尾居中半角 → 1', function () {
     withCenter(function () {
       var b = computeLineEndBases(['汉'], ['」', '。', '下'], { hangRight: 'none' });
       assert.deepEqual(b.pullChars, ['」', '。']);

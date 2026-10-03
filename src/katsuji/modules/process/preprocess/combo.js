@@ -171,7 +171,7 @@ function dropComboGaps(items, leftIdx, rightIdx, target, left) {
 }
 
 /**
- * 成对：通常包一个半角盒；可调置中去双侧缝，空朝内的另一字也包。
+ * 成对：通常包一个半角盒。置中对：朝内只包缝主字并省置中双侧缝；朝外只包置中。
  */
 export function applyComboPair(items, leftIdx, rightIdx) {
   if (leftIdx < 0 || rightIdx < 0) return null;
@@ -183,13 +183,19 @@ export function applyComboPair(items, leftIdx, rightIdx) {
 
   if (kind === 'center') {
     var center = isCenterAlignChar(left.ch) ? left : right;
+    var inward = comboCenterWrapsInwardPartner(left.ch, right.ch);
+    if (inward) {
+      var partner = isCenterAlignChar(left.ch) ? right : left;
+      if (charItemIsHalfPunctWrapped(partner)) return null;
+      var inwardHit = wrapComboHalf(partner);
+      if (!inwardHit) return null;
+      // 删朝内缝 + 置中双侧缝；置中本身不进盒
+      dropComboGaps(items, leftIdx, rightIdx, center, left);
+      return inwardHit;
+    }
     var wrapped = wrapComboHalf(center);
     if (!wrapped) return null;
     dropComboGaps(items, leftIdx, rightIdx, center, left);
-    if (comboCenterWrapsInwardPartner(left.ch, right.ch)) {
-      var partner = isCenterAlignChar(left.ch) ? right : left;
-      if (!charItemIsHalfPunctWrapped(partner)) wrapComboHalf(partner);
-    }
     return wrapped;
   }
 

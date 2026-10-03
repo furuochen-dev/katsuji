@@ -190,7 +190,7 @@ export function isComboPair(leftCh, rightCh) {
   return comboPairKind(leftCh, rightCh) != null;
 }
 
-/** 置中对里另一字空朝内：后有空在左，或前有空在右 → 也包另一字 */
+/** 置中对里另一字空朝内：后有空在左，或前有空在右 → 只包该缝主字（不包置中） */
 export function comboCenterWrapsInwardPartner(leftCh, rightCh) {
   if (comboPairKind(leftCh, rightCh) !== 'center') return false;
   if (isAdjustableCenter(rightCh) && isHalfPunct(leftCh)) return true;
@@ -206,7 +206,7 @@ export function comboGapsToLockCount(gapCountBetween, kind) {
 
 export function comboDeductionEm(leftCh, rightCh) {
   if (!isComboPair(leftCh, rightCh)) return 0;
-  return comboCenterWrapsInwardPartner(leftCh, rightCh) ? 1 : 0.5;
+  return 0.5;
 }
 
 export function comboRunInternalDeductionEm(chars) {
@@ -226,8 +226,12 @@ export function runGrossEm(chars) {
   return chars.length * charGrossEm();
 }
 
+/** 连写是否已包挪串末字：朝内只包缝主字；朝外只包置中。 */
 function comboAlreadyWrapsMovedLast(leftCh, rightCh) {
   if (comboPairKind(leftCh, rightCh) !== 'center') return false;
+  if (comboCenterWrapsInwardPartner(leftCh, rightCh)) {
+    return !isAdjustableCenter(rightCh);
+  }
   return isAdjustableCenter(rightCh);
 }
 
