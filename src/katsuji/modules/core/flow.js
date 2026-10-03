@@ -37,16 +37,16 @@ export function rectLineThick(rect, vertical) {
   return vertical ? rect.width : rect.height;
 }
 
-/** clientWidth/Height 是整数 CSS px；减 1px 给 UA 折行留子像素余量。 */
+/** clientWidth/Height 是整数 CSS px；减 2px 给 UA 折行留子像素余量（Chrome 竖排约需 2）。 */
 export function contentInlinePx(block) {
   if (!block) return 0;
   var vertical = isVerticalWritingMode(block);
   var box = vertical ? block.clientHeight || 0 : block.clientWidth || 0;
-  if (!win || !win.getComputedStyle) return Math.max(0, box - 1);
+  if (!win || !win.getComputedStyle) return Math.max(0, box - 2);
   var cs = win.getComputedStyle(block);
   var a = parseFloat(cs.getPropertyValue(GAP_PAD)) || 0;
   var b = parseFloat(cs.getPropertyValue('padding-inline-end')) || 0;
-  return Math.max(0, box - a - b - 1);
+  return Math.max(0, box - a - b - 2);
 }
 
 export function setCssEm(el, prop, em) {

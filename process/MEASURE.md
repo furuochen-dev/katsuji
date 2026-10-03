@@ -4,7 +4,7 @@
 
 ## 行宽
 
-行宽是**正文框**。量内容盒。横排量宽（`clientWidth − padding`），竖排量高；按元素的 `writing-mode` 由兼容层去选。再减 **1px**，给 UA 折行留子像素余量（`clientWidth` / `clientHeight` 本身是整数）。
+行宽是**正文框**。量内容盒。横排量宽（`clientWidth − padding`），竖排量高；按元素的 `writing-mode` 由兼容层去选。再减 **2px**，给 UA 折行留子像素余量（`clientWidth` / `clientHeight` 本身是整数；Chrome 竖排约需 2）。
 
 - 行头、行尾侧都加了 0.5em 悬挂沟时，量到的盒子已经不含沟，直接当行宽。
 - 只加一侧时，量到的盒子再减去那 0.5em。

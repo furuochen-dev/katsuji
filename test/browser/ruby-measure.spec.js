@@ -11,7 +11,7 @@ async function openHost(page, widthEm) {
   if (bootErr) throw new Error(bootErr);
   if (widthEm != null) {
     await page.evaluate((em) => {
-      document.getElementById('host').style.width = 'calc(' + em + 'em + 1px)';
+      document.getElementById('host').style.width = 'calc(' + em + 'em + 2px)';
     }, widthEm);
   }
 }
