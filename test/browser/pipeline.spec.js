@@ -11,7 +11,8 @@ async function openHost(page, widthEm) {
   if (bootErr) throw new Error(bootErr);
   if (widthEm != null) {
     await page.evaluate((em) => {
-      document.getElementById('host').style.width = em + 'em';
+      // 与 contentInlinePx 的 −1px 对消，夹具仍按整 em 语义
+      document.getElementById('host').style.width = 'calc(' + em + 'em + 1px)';
     }, widthEm);
   }
 }
@@ -697,7 +698,7 @@ test.describe('第 5 步 行尾 / 段末', function () {
       void host.offsetHeight;
       var p = document.querySelector('#host p');
       var first = window.Katsuji.measureBlockVisualLines(p).lines[0];
-      host.style.width = first.lineVisualEm + 'em';
+      host.style.width = 'calc(' + first.lineVisualEm + 'em + 1px)';
       void host.offsetHeight;
       var lines = window.Katsuji.measureBlockVisualLines(p).lines;
       return { first: lines[0].text, second: lines[1] && lines[1].text };
@@ -1081,7 +1082,8 @@ test.describe('标点悬挂', function () {
     expect(info.hung).toBe(true);
     expect(info.hangMr).toBe('-0.5em');
     var gutter = await hangGutter(page);
-    expect(gutter.overflow).toBeGreaterThan(gutter.fs * 0.15);
+    // 夹具宽含 +1px 对消行宽余量后，外溢仍应明显大于噪声
+    expect(gutter.overflow).toBeGreaterThan(gutter.fs * 0.1);
   });
 
   test('挤进可悬挂：行内缝撑满，墨过内容盒右缘，不用 transform', async function ({ page }) {

@@ -16,7 +16,7 @@ async function openVerticalHost(page, heightEm) {
   await page.evaluate((em) => {
     var host = document.getElementById('host');
     host.style.width = 'auto';
-    host.style.height = em + 'em';
+    host.style.height = 'calc(' + em + 'em + 1px)';
     host.style.writingMode = 'vertical-rl';
   }, heightEm);
 }
