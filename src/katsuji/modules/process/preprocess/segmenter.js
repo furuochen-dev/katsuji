@@ -19,6 +19,10 @@ function collectTextNodes(root) {
   return list;
 }
 
+function markHalfGap(span, side) {
+  if (side === 'both') span.setAttribute('data-ts-half-gap', '1');
+}
+
 function splitTextWithMarkers(text, documentRef) {
   var frag = documentRef.createDocumentFragment();
   var buf = '';
@@ -34,6 +38,7 @@ function splitTextWithMarkers(text, documentRef) {
       spanBefore.setAttribute('class', 'ts-gap');
       spanBefore.setAttribute('data-ts-open-gap', '1');
       spanBefore.setAttribute('style', GAP_PAD + ': 0');
+      markHalfGap(spanBefore, side);
       frag.appendChild(spanBefore);
     }
     buf += ch;
@@ -42,6 +47,7 @@ function splitTextWithMarkers(text, documentRef) {
       var span = documentRef.createElement('span');
       span.setAttribute('class', 'ts-gap');
       span.setAttribute('style', GAP_PAD + ': 0');
+      markHalfGap(span, side);
       frag.appendChild(span);
       buf = '';
     }
@@ -113,6 +119,7 @@ function insertGapBesideChar(item, side, doc) {
   span.setAttribute('class', 'ts-gap');
   span.setAttribute('style', GAP_PAD + ': 0');
   if (side === 'before') span.setAttribute('data-ts-open-gap', '1');
+  if (gapInsertSide(item.ch) === 'both') span.setAttribute('data-ts-half-gap', '1');
   var tv = node.nodeValue || '';
   if (node.nodeType === Node.TEXT_NODE && tv.length === 1 && offset === 0) {
     if (side === 'after') parent.insertBefore(span, node.nextSibling);

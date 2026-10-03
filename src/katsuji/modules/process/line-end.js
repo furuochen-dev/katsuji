@@ -43,6 +43,8 @@ import {
   restoreLineCharsIfComboSplit,
   lineLostIntendedRun,
   GAP_SHARE_MIN_EM,
+  gapsShareWeightSum,
+  gapShareWeight,
 } from './typeset-rules.js';
 import { clearGapEdge, resetGapEdge } from '../core/flow.js';
 
@@ -114,7 +116,9 @@ function lockLineEndPunctGaps(items, charIdx, hangRight, hung) {
   if (shouldLockLineEndAfterGap(ch, hangRight)) {
     lockEdgeGap(gapElAdjacentAfterChar(items, charIdx));
   }
-  if (hung) lockEdgeGap(gapElAdjacentBeforeChar(items, charIdx));
+  if (hung || shouldLockLineEndBeforeGap(ch, hangRight)) {
+    lockEdgeGap(gapElAdjacentBeforeChar(items, charIdx));
+  }
 }
 
 function unlockEdgeGap(el) {
@@ -189,10 +193,14 @@ export function fillLineLeftover(layout, L, intendedThisChars) {
   var metrics = measureLineVisualMetricsPx(next.block, next.items, range.startIndex, range.endIndex);
   var leftover = blockLineMaxEm(next, L) - metrics.lineWidthPx / next.emPx;
   if (!(leftover >= GAP_SHARE_MIN_EM)) return { gaps: [], addEm: 0 };
-  var addEm = leftover / interior.length - 0.001;
-  if (!(addEm >= GAP_SHARE_MIN_EM)) return { gaps: [], addEm: 0 };
-  for (var g = 0; g < interior.length; g++) addGapPaddingEm(interior[g], addEm, next.emPx);
-  return { gaps: interior, addEm: addEm };
+  var weight = gapsShareWeightSum(interior);
+  if (!(weight > 0)) return { gaps: [], addEm: 0 };
+  var unitEm = leftover / weight - 0.001;
+  if (!(unitEm >= GAP_SHARE_MIN_EM)) return { gaps: [], addEm: 0 };
+  for (var g = 0; g < interior.length; g++) {
+    addGapPaddingEm(interior[g], unitEm * gapShareWeight(interior[g]), next.emPx);
+  }
+  return { gaps: interior, addEm: unitEm };
 }
 
 /** 抽完或抽不动：还在行尾的可挂字仍要挂（抽上来的若是宽 ruby，UA 折不回来）。 */
@@ -300,6 +308,8 @@ export function applyLineEndOnLine(layout, L, hangOpts, lineCharsHint) {
     pushBaseEm: bases.pushBaseEm,
     pullGapCount: pullGaps.length,
     pushGapCount: pushGaps.length,
+    pullGapWeight: gapsShareWeightSum(pullGaps),
+    pushGapWeight: gapsShareWeightSum(pushGaps),
     lineIndex: L,
   });
 

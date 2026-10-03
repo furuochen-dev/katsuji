@@ -88,6 +88,7 @@ export const punctConfig = {
   vertical: false,
   rotateColon: false,
   punctAlign: 'corner',
+  comboCenterPunct: true,
   gapBefore: null,
   gapNone: null,
   gapAfter: null,
@@ -109,6 +110,7 @@ export function applyPunctForElement(el) {
     vertical: !!(punctConfig.vertical || isVerticalWritingMode(el)),
     rotateColon: punctConfig.rotateColon,
     punctAlign: punctConfig.punctAlign,
+    comboCenterPunct: punctConfig.comboCenterPunct,
     gapBefore: punctConfig.gapBefore,
     gapNone: punctConfig.gapNone,
     gapAfter: punctConfig.gapAfter,
@@ -123,6 +125,7 @@ export function mergePunctConfig(overrides) {
   if (overrides.punctAlign === 'center' || overrides.punctAlign === 'corner') {
     punctConfig.punctAlign = overrides.punctAlign;
   }
+  if (overrides.comboCenterPunct != null) punctConfig.comboCenterPunct = !!overrides.comboCenterPunct;
   if (overrides.gapBefore !== undefined) punctConfig.gapBefore = overrides.gapBefore;
   if (overrides.gapNone !== undefined) punctConfig.gapNone = overrides.gapNone;
   if (overrides.gapAfter !== undefined) punctConfig.gapAfter = overrides.gapAfter;
@@ -138,6 +141,7 @@ export function applyPunctPreset(name) {
       vertical: false,
       rotateColon: false,
       punctAlign: 'corner',
+      comboCenterPunct: true,
       gapBefore: null,
       gapNone: null,
       gapAfter: null,

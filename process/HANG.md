@@ -4,7 +4,7 @@
 
 流水线见 [TYPESET.md](TYPESET.md)。量宽见 [MEASURE.md](MEASURE.md)。
 
-打开后默认右挂句读、缩进左挂、全局左挂关。置中固定表有字且未写 `hangRight` 时，默认 `'exceptCenterFixed'`。
+打开后默认右挂句读、缩进左挂、全局左挂关。`置中固定` 表有字且未写 `hangRight` 时，默认 `'exceptCenterFixed'`；默认置中不再填固定表，此时与 `'all'` 相同。
 
 ```js
 Katsuji.applyHangAvoidance(root, {
@@ -16,10 +16,10 @@ Katsuji.applyHangAvoidance(root, {
 |---|---|
 | `'none'` | 无字 |
 | `'stops'` | `，` `。` `、` |
-| `'all'` | 在 `后有空` |
+| `'all'` | 在 `后有空`（横排置中时含可调置中的 `？` `！`） |
 | `'exceptCenterFixed'` | 在 `后有空` 且不在 `置中固定` |
 
-不置中时 `置中固定` 为空，`'all'` 与 `'exceptCenterFixed'` 相同。
+`置中固定` 为空时，`'all'` 与 `'exceptCenterFixed'` 相同。
 
 | 行首挂 | 何时推盒 |
 |---|---|

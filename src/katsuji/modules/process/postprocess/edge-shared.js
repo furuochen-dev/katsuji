@@ -1,11 +1,15 @@
 /** 行边界调整共用：写缝、挤推、命中记录 */
 import { hangMarginEmPerGap } from '../../measure/line-width.js';
 import { setGapPadEm, setGapMarEm } from '../../core/flow.js';
+import { gapShareWeight } from '../typeset-rules.js';
 
-export function applyMarginToGaps(gaps, em) {
+/** unitEm：单位权份额（字符串或数字）。半倍空 ×0.5。 */
+export function applyMarginToGaps(gaps, unitEm) {
+  var unit =
+    typeof unitEm === 'number' ? unitEm : parseFloat(String(unitEm || '').replace(/em$/i, '')) || 0;
   for (var g = 0; g < gaps.length; g++) {
     setGapPadEm(gaps[g], 0);
-    setGapMarEm(gaps[g], em);
+    setGapMarEm(gaps[g], unit * gapShareWeight(gaps[g]));
   }
 }
 

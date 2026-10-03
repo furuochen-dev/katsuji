@@ -10,6 +10,7 @@ import {
   hasCenterFixedChars,
   DEFAULT_HANGABLE_STOPS,
 } from '../text/punctuation-rules.js';
+import { punctConfig } from '../core/punct-config.js';
 
 export var PULL_MAX_EM = 0.6;
 export var PULL_MAX_SLACK_EM = 0.01;
@@ -150,21 +151,34 @@ function insertsBeforeGap(ch) {
   return side === 'before' || side === 'both';
 }
 
+function isAdjustableCenter(ch) {
+  return isCenterStop(ch) || isCenterFixed(ch);
+}
+
+function canPairWithCenter(otherCh) {
+  return isHalfPunct(otherCh) || punctGapClass(otherCh) === 'before';
+}
+
 /**
- * 成对：收半角后紧跟标点则成对；置中点号/固定后紧跟前有空或收半角则成对。
- * 中间几条缝看实际插缝（`gapInsertSide`）。
- * @returns {null|'after-before'|'single'|'wrap-right'}
+ * 成对：前有空/后有空路径与角置相同；有可调置中则包置中（见 TYPESET §4）。
+ * @returns {null|'after-before'|'single'|'center'}
  */
 export function comboPairKind(leftCh, rightCh) {
   if (!isPunctuationChar(leftCh) || !isPunctuationChar(rightCh)) return null;
+  var leftC = isAdjustableCenter(leftCh);
+  var rightC = isAdjustableCenter(rightCh);
+  if (leftC || rightC) {
+    if (punctConfig.comboCenterPunct === false) return null;
+    if (leftC && rightC) return null;
+    var other = leftC ? rightCh : leftCh;
+    if (!canPairWithCenter(other)) return null;
+    return 'center';
+  }
   var n = punctGapClass(rightCh);
   if (isHalfPunct(leftCh)) {
     if (insertsBeforeGap(rightCh)) return 'after-before';
     return 'single';
   }
-  if ((isCenterStop(leftCh) || isCenterFixed(leftCh)) && n === 'before') return 'wrap-right';
-  if ((isCenterStop(leftCh) || isCenterFixed(leftCh)) && isHalfPunct(rightCh)) return 'wrap-right';
-  if (isCenterStop(leftCh) || isCenterFixed(leftCh)) return null;
   var p = punctGapClass(leftCh);
   if (p == null || n == null) return null;
   if (p !== 'after' && n !== 'before') return null;
@@ -176,6 +190,14 @@ export function isComboPair(leftCh, rightCh) {
   return comboPairKind(leftCh, rightCh) != null;
 }
 
+/** 置中对里另一字空朝内：后有空在左，或前有空在右 → 也包另一字 */
+export function comboCenterWrapsInwardPartner(leftCh, rightCh) {
+  if (comboPairKind(leftCh, rightCh) !== 'center') return false;
+  if (isAdjustableCenter(rightCh) && isHalfPunct(leftCh)) return true;
+  if (isAdjustableCenter(leftCh) && punctGapClass(rightCh) === 'before') return true;
+  return false;
+}
+
 /** 4.1 两条缝只删第一条；4.2 删中间那一条。 */
 export function comboGapsToLockCount(gapCountBetween, kind) {
   if (!kind || !(gapCountBetween > 0)) return 0;
@@ -183,7 +205,8 @@ export function comboGapsToLockCount(gapCountBetween, kind) {
 }
 
 export function comboDeductionEm(leftCh, rightCh) {
-  return isComboPair(leftCh, rightCh) ? 0.5 : 0;
+  if (!isComboPair(leftCh, rightCh)) return 0;
+  return comboCenterWrapsInwardPartner(leftCh, rightCh) ? 1 : 0.5;
 }
 
 export function comboRunInternalDeductionEm(chars) {
@@ -203,10 +226,16 @@ export function runGrossEm(chars) {
   return chars.length * charGrossEm();
 }
 
+function comboAlreadyWrapsMovedLast(leftCh, rightCh) {
+  if (comboPairKind(leftCh, rightCh) !== 'center') return false;
+  return isAdjustableCenter(rightCh);
+}
+
 /**
  * 挪完之后的占宽。
  * pull：扣接缝（行尾+串首）和串内连写；末字收半角则 −0.5。
  * push：只扣接缝（串尾+原下行行头）；串内已在「合」里。新行尾收半角或前字已是半角盒则 +0.5。
+ * 置中连写已包末字时，末字半角不重复扣。
  */
 export function opticalMoveEm(movedChars, opts) {
   opts = opts || {};
@@ -217,7 +246,16 @@ export function opticalMoveEm(movedChars, opts) {
   if (opts.junctionRight && chars.length) {
     em -= comboDeductionEm(chars[chars.length - 1], opts.junctionRight);
   }
-  if (opts.wrapLastHalf) em -= opts.wrapLastEm != null ? opts.wrapLastEm : 0.5;
+  if (opts.wrapLastHalf) {
+    var skip =
+      (opts.deductInternalCombo &&
+        chars.length >= 2 &&
+        comboAlreadyWrapsMovedLast(chars[chars.length - 2], chars[chars.length - 1])) ||
+      (opts.junctionLeft &&
+        chars.length === 1 &&
+        comboAlreadyWrapsMovedLast(opts.junctionLeft, chars[0]));
+    if (!skip) em -= opts.wrapLastEm != null ? opts.wrapLastEm : 0.5;
+  }
   if (opts.wrapNewEndHalf) em += opts.wrapNewEndEm != null ? opts.wrapNewEndEm : 0.5;
   if (opts.prevAlreadyHalf) em += 0.5;
   return em;
@@ -330,9 +368,9 @@ export function shouldLockLineEndAfterGap(ch, hangRight) {
   return shouldWrapMovedLastHalf([ch], hangRight);
 }
 
-/** 行尾已推出：前缝锁死 */
+/** 行尾已推出或进盒可调置中：前缝锁死 */
 export function shouldLockLineEndBeforeGap(ch, hangRight) {
-  return isHangable(ch, hangRight || 'none');
+  return isHangable(ch, hangRight || 'none') || isCenterStop(ch);
 }
 
 export function charBeforeSuffix(thisLineChars, suffixChars) {
@@ -466,35 +504,68 @@ export function lineStepPlan(lineIndex, lineCount) {
   };
 }
 
+/** 置中点号两侧半倍空权 0.5，其余可调缝权 1。 */
+export function gapShareWeight(el) {
+  return el && el.getAttribute && el.getAttribute('data-ts-half-gap') === '1' ? 0.5 : 1;
+}
+
+export function gapsShareWeightSum(gaps) {
+  var w = 0;
+  if (!gaps) return 0;
+  for (var i = 0; i < gaps.length; i++) w += gapShareWeight(gaps[i]);
+  return w;
+}
+
 /** @param {'push'|'pull'} [tieBreak] */
-export function decideHangStrategy(pullAmountEm, pullGapCount, pushAmountEm, pushGapCount, tieBreak) {
+/** pullWeight/pushWeight：权重和；缺省等于条数（满权）。比的是单位权绝对值。 */
+export function decideHangStrategy(
+  pullAmountEm,
+  pullGapCount,
+  pushAmountEm,
+  pushGapCount,
+  tieBreak,
+  pullWeight,
+  pushWeight,
+) {
   if (tieBreak !== 'push' && tieBreak !== 'pull') tieBreak = 'pull';
-  var canPush = pushGapCount >= 1 && pushAmountEm > 0;
+  var pullW = pullWeight != null ? pullWeight : pullGapCount;
+  var pushW = pushWeight != null ? pushWeight : pushGapCount;
+  var canPush = pushGapCount >= 1 && pushAmountEm > 0 && pushW > 0;
   var canPull =
     pullAmountEm <= PULL_MAX_EM + PULL_MAX_SLACK_EM &&
-    (pullAmountEm <= 0 || pullGapCount >= 1);
+    (pullAmountEm <= 0 || (pullGapCount >= 1 && pullW > 0));
   if (!canPush && !canPull) return 'none';
   if (!canPush) return 'pull';
   if (!canPull) return 'push';
-  if (pullGapCount < 1 || pullAmountEm <= 0) return 'pull';
+  if (pullGapCount < 1 || pullAmountEm <= 0 || !(pullW > 0)) return 'pull';
   if (pushAmountEm > 0.25 && pullAmountEm < 0.55) return 'pull';
-  var pullPerGap = Math.abs(pullAmountEm / pullGapCount);
-  var pushPerGap = Math.abs(pushAmountEm / pushGapCount);
+  var pullPerGap = Math.abs(pullAmountEm / pullW);
+  var pushPerGap = Math.abs(pushAmountEm / pushW);
   if (Math.abs(pushPerGap - pullPerGap) < HANG_STRATEGY_TIE_EPS) return tieBreak;
   if (pushPerGap < pullPerGap) return 'push';
   if (pushPerGap > pullPerGap) return 'pull';
   return 'none';
 }
 
-export function hangShareEm(decision, pullAmountEm, pushAmountEm, pullGapCount, pushGapCount) {
+/** 返回单位权份额；半倍空实际再 ×0.5。 */
+export function hangShareEm(
+  decision,
+  pullAmountEm,
+  pushAmountEm,
+  pullGapCount,
+  pushGapCount,
+  pullWeight,
+  pushWeight,
+) {
   if (decision !== 'push' && decision !== 'pull') return null;
   var amountEm = decision === 'push' ? pushAmountEm : pullAmountEm;
   var gapCount = decision === 'push' ? pushGapCount : pullGapCount;
+  var weight = decision === 'push' ? (pushWeight != null ? pushWeight : pushGapCount) : pullWeight != null ? pullWeight : pullGapCount;
   if (decision === 'pull' && amountEm <= 0) return 0;
-  if (gapCount < 1) return null;
+  if (gapCount < 1 || !(weight > 0)) return null;
   if (decision === 'pull' && amountEm < GAP_SHARE_MIN_EM) return 0;
   if (!(amountEm > 0)) return null;
-  var share = decision === 'push' ? amountEm / gapCount - 0.001 : -amountEm / gapCount - 0.001;
+  var share = decision === 'push' ? amountEm / weight - 0.001 : -amountEm / weight - 0.001;
   if (!isFinite(share) || Math.abs(share) < GAP_SHARE_MIN_EM) return null;
   return share;
 }

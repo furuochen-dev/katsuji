@@ -409,7 +409,7 @@ export function measureRootVisualLines(root, selector) {
   return out;
 }
 
-/** @param {'push'|'pull'} tieBreak per-gap 差低于 HANG_STRATEGY_TIE_EPS 时采用 */
+/** @param {'push'|'pull'} tieBreak 单位权差低于 HANG_STRATEGY_TIE_EPS 时采用 */
 /** @returns {(pullAmountEm: number, pullGapCount: number, pushAmountEm: number, pushGapCount: number) => 'push'|'pull'|'none'} */
 export function defaultStrategyDecider(tieBreak) {
   return function (pullAmountEm, pullGapCount, pushAmountEm, pushGapCount) {
@@ -417,7 +417,8 @@ export function defaultStrategyDecider(tieBreak) {
   };
 }
 
-/** @returns {{ em: string|null, usedPushFallback: boolean }} */
+/** @returns {{ em: string|null, usedPushFallback: boolean }}
+ * em 是单位权份额；半倍空再 ×0.5。 */
 export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var none = { em: null, usedPushFallback: false };
   marginOpts = marginOpts || {};
@@ -425,6 +426,10 @@ export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
     marginOpts.pullGapCount != null ? marginOpts.pullGapCount : marginOpts.gapCount;
   var pushGapCount =
     marginOpts.pushGapCount != null ? marginOpts.pushGapCount : marginOpts.gapCount;
+  var pullWeight =
+    marginOpts.pullGapWeight != null ? marginOpts.pullGapWeight : pullGapCount;
+  var pushWeight =
+    marginOpts.pushGapWeight != null ? marginOpts.pushGapWeight : pushGapCount;
   if (!layout) return none;
   var pullBaseEm = marginOpts.pullBaseEm != null ? marginOpts.pullBaseEm : 1;
   var pushBaseEm = marginOpts.pushBaseEm != null ? marginOpts.pushBaseEm : 1;
@@ -436,23 +441,31 @@ export function hangMarginEmPerGap(layout, startIndex, endIndex, marginOpts) {
   var amounts = hangAmountsEm(lineEm, maxEm, pullBaseEm, pushBaseEm);
   var pullAmountEm = amounts.pullAmountEm;
   var pushAmountEm = amounts.pushAmountEm;
-  var decide =
+  var decision =
     typeof marginOpts.strategyDecider === 'function'
-      ? marginOpts.strategyDecider
-      : defaultStrategyDecider('pull');
-  var decision = decide(pullAmountEm, pullGapCount, pushAmountEm, pushGapCount);
+      ? marginOpts.strategyDecider(pullAmountEm, pullGapCount, pushAmountEm, pushGapCount)
+      : decideHangStrategy(
+          pullAmountEm,
+          pullGapCount,
+          pushAmountEm,
+          pushGapCount,
+          'pull',
+          pullWeight,
+          pushWeight,
+        );
   if (decision === 'none') return none;
   var usePush = decision === 'push';
   var amountEm = usePush ? pushAmountEm : pullAmountEm;
   var gapCount = usePush ? pushGapCount : pullGapCount;
+  var weight = usePush ? pushWeight : pullWeight;
   if (decision === 'pull' && amountEm <= 0) {
     return { em: '0em', usedPushFallback: false };
   }
   if (decision === 'pull' && amountEm < GAP_SHARE_MIN_EM) {
     return { em: '0em', usedPushFallback: false };
   }
-  if (!(amountEm > 0) || gapCount < 1) return none;
-  var share = usePush ? amountEm / gapCount - 0.001 : -amountEm / gapCount - 0.001;
+  if (!(amountEm > 0) || gapCount < 1 || !(weight > 0)) return none;
+  var share = usePush ? amountEm / weight - 0.001 : -amountEm / weight - 0.001;
   if (!isFinite(share) || Math.abs(share) < GAP_SHARE_MIN_EM) return none;
   return {
     em: share.toFixed(6).replace(/\.?0+$/, '') + 'em',

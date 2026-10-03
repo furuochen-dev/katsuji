@@ -8,6 +8,7 @@ import {
 import { addGapPaddingEm } from '../../measure/gap-padding-margin.js';
 import { wrapTrailingAfterPunctOnLine } from '../../core/punct-wrap.js';
 import { applyPunctForElement, restorePunctFromConfig } from '../../core/punct-config.js';
+import { gapsShareWeightSum, gapShareWeight, GAP_SHARE_MIN_EM } from '../typeset-rules.js';
 
 function lineVisualWidthEm(layout, startIndex, endIndex) {
   return (
@@ -33,15 +34,18 @@ function applySurplusOnLine(layout, L) {
     omitLineStart: true,
   });
   if (adjGaps.length < 1) return null;
-  var addEm = surplusEm / adjGaps.length - 0.0005;
+  var weight = gapsShareWeightSum(adjGaps);
+  if (!(weight > 0)) return null;
+  var unitEm = surplusEm / weight - 0.0005;
+  if (!(Math.abs(unitEm) >= GAP_SHARE_MIN_EM)) return null;
   for (var g = 0; g < adjGaps.length; g++) {
-    addGapPaddingEm(adjGaps[g], addEm, layout.emPx);
+    addGapPaddingEm(adjGaps[g], unitEm * gapShareWeight(adjGaps[g]), layout.emPx);
   }
   return {
     lineIndex: L,
     gaps: adjGaps,
     surplusEm: surplusEm,
-    addEm: addEm,
+    addEm: unitEm,
   };
 }
 

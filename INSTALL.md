@@ -153,7 +153,7 @@ Katsuji.applyHangAvoidance(root, {
 });
 ```
 
-`hangRight`：`'none'` 不挂 / `'stops'` 句读 / `'all'` 后有空（含 `？` `！`）/ `'exceptCenterFixed'` 后有空减去 `置中固定`。打开置中且 `hangingPunctuation: true` 时默认 `'exceptCenterFixed'`。`hangLeftIndent`（打开时的默认）：段首行且 `text-indent ≥ 0.5em` 时把开括号推进缩进；没有缩进不推。`hangLeft`：每一行再推进左沟。
+`hangRight`：`'none'` 不挂 / `'stops'` 句读 / `'all'` 后有空（含 `？` `！`）/ `'exceptCenterFixed'` 后有空减去 `置中固定`。打开置中时固定表默认空，`'exceptCenterFixed'` 与 `'all'` 相同。`hangLeftIndent`（打开时的默认）：段首行且 `text-indent ≥ 0.5em` 时把开括号推进缩进；没有缩进不推。`hangLeft`：每一行再推进左沟。
 
 ### 熟语（`jukugo`）
 
@@ -213,7 +213,8 @@ Katsuji.setPunctConfig({
   jisStrict: true, // JIS 严格：小假名、长音、叠字 → 行头不可（不进两侧无空）
   vertical: true,  // 没有 CSS writing-mode 时手动叠问叹；块已是竖排则不必设
   rotateColon: true, // 默认 false。日标：竖排：；转 90°，留后有空可收半角；默认国标竖直、两侧无空
-  punctAlign: 'center', // 默认 'corner'。置中字体：点号两边插缝、可挂、不收半角；？！固定 1em；成对仍连写。须在 apply 前设置
+  punctAlign: 'center', // 默认 'corner'。可调置中（含？！）两边半倍空、可挂、连写包置中字
+  comboCenterPunct: true, // 默认 true；false = 可调置中不进第 4 步成对
   gapBefore: null, // 传入字符串则整类替换（null 用预设叠加后的默认）
   gapNone: null,
   gapAfter: null,

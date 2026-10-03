@@ -21,9 +21,10 @@ export const GAP_NONE = Object.create(null);
 /** 1. 右边有空：句读、闭括、半角标点等 */
 export const AFTER_CHARS = Object.create(null);
 
-/** `punctAlign: 'center'` 填入；默认无字 */
-export var CENTER_ALIGN_STOPS = '，。、；：·';
-export var CENTER_ALIGN_FIXED = '？！';
+/** `punctAlign: 'center'` 横排填入可调置中；默认无字。含？！ */
+export var CENTER_ALIGN_STOPS = '，。、；：·？！';
+/** 默认空；可自定义不可调置中 */
+export var CENTER_ALIGN_FIXED = '';
 export const CENTER_STOPS_CHARS = Object.create(null);
 export const CENTER_FIXED_CHARS = Object.create(null);
 
