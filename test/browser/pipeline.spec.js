@@ -100,6 +100,98 @@ test.describe('第 1 步 插缝', function () {
   });
 });
 
+test.describe('作者 <br> 硬断行', function () {
+  test('br 前一行不撑；br 后不缩进左挂；段首仍缩进左挂', async function ({ page }) {
+    await openHost(page, 20);
+    await page.evaluate(() => {
+      var host = document.getElementById('host');
+      host.innerHTML = '';
+      var p = document.createElement('p');
+      p.style.textIndent = '2em';
+      p.innerHTML = '「甲甲<br>「乙乙';
+      host.appendChild(p);
+    });
+    var info = await page.evaluate(() => {
+      var host = document.getElementById('host');
+      var p = host.querySelector('p');
+      window.Katsuji.apply(host);
+      var before = window.Katsuji.buildBlockLayout(p);
+      var hasBr = before.items.some(function (it) {
+        return it.type === 'br';
+      });
+      window.Katsuji.applyHangAvoidance(host, {
+        hangingPunctuation: { hangLeftIndent: true, hangLeft: false, hangRight: 'stops' },
+      });
+      var layout = window.Katsuji.buildBlockLayout(p);
+      var lines = [];
+      var maxPadBeforeBr = 0;
+      for (var L = 0; L < layout.heads.length; L++) {
+        var r = window.Katsuji.lineItemBounds(layout.items, layout.heads, L);
+        var lc = window.Katsuji.lineCharsFromItems(layout.items, r.startIndex, r.endIndex);
+        lines.push((lc.text || '').replace(/\s+/g, ''));
+        if (layout.lineEndsBeforeBr && layout.lineEndsBeforeBr[L]) {
+          for (var g = r.startIndex; g <= r.endIndex && g < layout.items.length; g++) {
+            if (layout.items[g].type !== 'gap') continue;
+            var pl = parseFloat(layout.items[g].el.style.getPropertyValue('padding-inline-start')) || 0;
+            var em = pl / layout.emPx;
+            if (em > maxPadBeforeBr) maxPadBeforeBr = em;
+          }
+        }
+      }
+      var openByLine = [];
+      for (var L2 = 0; L2 < layout.heads.length; L2++) {
+        var range = window.Katsuji.lineItemBounds(layout.items, layout.heads, L2);
+        var hung = false;
+        var hasOpen = false;
+        for (var j = range.startIndex; j <= range.endIndex && j < layout.items.length; j++) {
+          if (layout.items[j].type !== 'char') continue;
+          var el = layout.items[j].node.parentElement;
+          while (el && el !== p) {
+            if (el.getAttribute && el.hasAttribute('data-ts-line-start-open')) {
+              hasOpen = true;
+              if (el.getAttribute('data-ts-hang-start') === '1') hung = true;
+              break;
+            }
+            el = el.parentElement;
+          }
+          if (hasOpen) break;
+        }
+        openByLine.push({
+          hasOpen: hasOpen,
+          hung: hung,
+          afterBr: !!(layout.lineStartsAfterBr && layout.lineStartsAfterBr[L2]),
+        });
+      }
+      return {
+        hasBr: hasBr,
+        endsBeforeBr: before.lineEndsBeforeBr,
+        lines: lines,
+        maxPadBeforeBr: maxPadBeforeBr,
+        openByLine: openByLine,
+      };
+    });
+    expect(info.hasBr).toBe(true);
+    expect(info.endsBeforeBr[0]).toBe(true);
+    expect(info.lines.length).toBeGreaterThanOrEqual(2);
+    expect(info.lines[0]).toMatch(/甲/);
+    expect(info.lines[0]).not.toMatch(/乙/);
+    expect(
+      info.lines.some(function (t) {
+        return /乙/.test(t);
+      }),
+    ).toBe(true);
+    expect(info.maxPadBeforeBr).toBeLessThan(0.6);
+    expect(info.openByLine[0].hasOpen).toBe(true);
+    expect(info.openByLine[0].hung).toBe(true);
+    var afterBr = info.openByLine.find(function (row) {
+      return row.afterBr;
+    });
+    expect(afterBr).toBeTruthy();
+    expect(afterBr.hasOpen).toBe(true);
+    expect(afterBr.hung).toBe(false);
+  });
+});
+
 test.describe('第 2 步 断行', function () {
   test('applyHangAvoidance 设 line-break:anywhere 且不撤', async function ({ page }) {
     await openHost(page, 8);
@@ -1300,7 +1392,7 @@ test.describe('标点悬挂', function () {
 });
 
 test.describe('置中标点', function () {
-  test('。左右各一条缝，？无缝，不叠缝', async function ({ page }) {
+  test('置中时。与？左右各一条半倍缝，不叠缝', async function ({ page }) {
     await openHost(page, 20);
     await setParagraph(page, '汉。汉？汉');
     var info = await page.evaluate(() => {
@@ -1316,7 +1408,17 @@ test.describe('置中标点', function () {
       window.Katsuji.setPunctConfig({ punctAlign: 'corner' });
       return seq;
     });
-    expect(info).toEqual(['汉', '[open]', '。', '[after]', '汉', '？', '汉']);
+    expect(info).toEqual([
+      '汉',
+      '[open]',
+      '。',
+      '[after]',
+      '汉',
+      '[open]',
+      '？',
+      '[after]',
+      '汉',
+    ]);
   });
 
   test('置中点号两侧半倍空；摊剩余半权', async function ({ page }) {
@@ -1431,7 +1533,7 @@ test.describe('置中标点', function () {
     expect(info.stopAfter).toBe(false);
   });
 
-  test('》，包，居中半角；》不收；，双侧无缝', async function ({ page }) {
+  test('》，包，居中半角且收》（空朝内）；，双侧无缝', async function ({ page }) {
     await openHost(page, 20);
     await setParagraph(page, '汉字《书名》，汉字汉字汉字');
     var info = await page.evaluate(() => {
@@ -1459,12 +1561,12 @@ test.describe('置中标点', function () {
       return { halves: halves, commaBefore: commaBefore, commaAfter: commaAfter };
     });
     expect(info.halves.some(function (h) { return h.ch.indexOf('，') >= 0 && h.center; })).toBe(true);
-    expect(info.halves.some(function (h) { return h.ch.indexOf('》') >= 0; })).toBe(false);
+    expect(info.halves.some(function (h) { return h.ch.indexOf('》') >= 0 && !h.center; })).toBe(true);
     expect(info.commaBefore).toBe(false);
     expect(info.commaAfter).toBe(false);
   });
 
-  test('」，包，居中半角；」不收', async function ({ page }) {
+  test('」，包，居中半角且收」（空朝内）', async function ({ page }) {
     await openHost(page, 20);
     await setParagraph(page, '汉字汉字」，汉字汉字汉字');
     var info = await page.evaluate(() => {
@@ -1483,7 +1585,7 @@ test.describe('置中标点', function () {
       return { halves: halves };
     });
     expect(info.halves.some(function (h) { return h.ch.indexOf('，') >= 0 && h.center; })).toBe(true);
-    expect(info.halves.some(function (h) { return h.ch.indexOf('」') >= 0; })).toBe(false);
+    expect(info.halves.some(function (h) { return h.ch.indexOf('」') >= 0 && !h.center; })).toBe(true);
   });
 
   test('，「包，居中半角且收「（空朝内）', async function ({ page }) {

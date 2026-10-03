@@ -496,11 +496,13 @@ export function lineLostIntendedRun(currentChars, intendedChars) {
   return true;
 }
 
-export function lineStepPlan(lineIndex, lineCount) {
+/** @param {{ lineEndsBeforeBr?: boolean }} [flags] 作者 <br> 前一行与段末同：不做第 5 步 */
+export function lineStepPlan(lineIndex, lineCount, flags) {
+  var hardEnd = !!(flags && flags.lineEndsBeforeBr);
   return {
     step3: true,
     step4: true,
-    step5: lineCount > 1 && lineIndex < lineCount - 1,
+    step5: lineCount > 1 && lineIndex < lineCount - 1 && !hardEnd,
   };
 }
 

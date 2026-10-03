@@ -1,6 +1,6 @@
 /** 一行：第 3 步 → 第 4 步 → 第 5 步（含 5′） */
 import { buildBlockLayout, charItemRubyEl } from '../measure/line-width.js';
-import { isParagraphLastLine } from '../measure/paragraph-items.js';
+import { isHardLineEnd } from '../measure/paragraph-items.js';
 import { mergeJukugoOnLine } from '../core/jukugo.js';
 import { applyLineEndOnLine, snapshotLinePair, fillLineLeftover, restoreDisplacedHangs } from './line-end.js';
 import { hangConfig } from '../core/config.js';
@@ -94,7 +94,9 @@ export function processLine(block, L, hangOpts, layoutHint) {
 
   var layout = relayout();
   if (!layout || L < 0 || L >= layout.heads.length) return null;
-  var plan = lineStepPlan(L, layout.heads.length, hp);
+  var plan = lineStepPlan(L, layout.heads.length, {
+    lineEndsBeforeBr: !!(layout.lineEndsBeforeBr && layout.lineEndsBeforeBr[L]),
+  });
   var parts = [];
   var charEl = null;
 
@@ -138,7 +140,7 @@ export function processLine(block, L, hangOpts, layoutHint) {
         }
       }
     }
-    if (layout && L < layout.heads.length && !isParagraphLastLine(layout, L)) {
+    if (layout && L < layout.heads.length && !isHardLineEnd(layout, L)) {
       var merged = mergeJukugoOnLine(layout, L, hangOpts, charItemRubyEl);
       if (merged) {
         if (block) void block.offsetHeight;

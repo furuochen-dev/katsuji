@@ -15,6 +15,8 @@ import {
   flattenParagraph,
   findLineFirstCharIndices,
   headCharCountsFromHeads,
+  lineStartsAfterBrFromHeads,
+  lineEndsBeforeBrFromStarts,
   lineItemBounds,
   lineCharsFromItems,
   getItemRect,
@@ -341,6 +343,7 @@ export function buildBlockLayout(block, opts) {
   var items = flattenParagraph(block);
   var vertical = opts.vertical != null ? !!opts.vertical : isVerticalWritingMode(block);
   var heads = findLineFirstCharIndices(items, vertical, opts.frozenHeadCharCounts);
+  var lineStartsAfterBr = lineStartsAfterBrFromHeads(items, heads);
   return {
     block: block,
     flow: opts.flow || flowOf(block),
@@ -352,6 +355,8 @@ export function buildBlockLayout(block, opts) {
     items: items,
     heads: heads,
     headCharCounts: headCharCountsFromHeads(items, heads),
+    lineStartsAfterBr: lineStartsAfterBr,
+    lineEndsBeforeBr: lineEndsBeforeBrFromStarts(lineStartsAfterBr),
   };
 }
 

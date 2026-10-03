@@ -157,11 +157,12 @@ function dropComboGaps(items, leftIdx, rightIdx, target, left) {
         break;
       }
     }
-    var seen = Object.create(null);
+    // DOM 节点不能当普通对象键（都会变成 "[object HTMLSpanElement]"）。
+    var seen = [];
     for (var i = 0; i < drop.length; i++) {
       var el = drop[i];
-      if (!el || seen[el]) continue;
-      seen[el] = true;
+      if (!el || seen.indexOf(el) >= 0) continue;
+      seen.push(el);
       removeGapEl(el);
     }
     return;

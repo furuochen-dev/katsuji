@@ -3,7 +3,7 @@ import {
   lineItemBounds,
   lastSignificantCharIndexOnLine,
   collectLineEndHangGaps,
-  isParagraphLastLine,
+  isHardLineEnd,
   gapElAdjacentBeforeChar,
   gapElAdjacentAfterChar,
 } from '../measure/paragraph-items.js';
@@ -222,7 +222,7 @@ function hangRemainingLineEnd(layout, L, hp) {
 }
 
 export function applyLineEndOnLine(layout, L, hangOpts, lineCharsHint) {
-  if (!layout || isParagraphLastLine(layout, L)) return false;
+  if (!layout || isHardLineEnd(layout, L)) return false;
   var items = layout.items;
   var heads = layout.heads;
   if (L + 1 >= heads.length) return false;

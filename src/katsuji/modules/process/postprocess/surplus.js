@@ -3,7 +3,7 @@ import { buildBlockLayout, measureLineVisualMetricsPx } from '../../measure/line
 import {
   lineItemBounds,
   collectGapsBetween,
-  isParagraphLastLine,
+  isHardLineEnd,
 } from '../../measure/paragraph-items.js';
 import { addGapPaddingEm } from '../../measure/gap-padding-margin.js';
 import { wrapTrailingAfterPunctOnLine } from '../../core/punct-wrap.js';
@@ -18,12 +18,12 @@ function lineVisualWidthEm(layout, startIndex, endIndex) {
 }
 
 function applySurplusOnLine(layout, L) {
-  if (isParagraphLastLine(layout, L)) return null;
+  if (isHardLineEnd(layout, L)) return null;
   var range = lineItemBounds(layout.items, layout.heads, L);
   if (wrapTrailingAfterPunctOnLine(layout.items, range.startIndex, range.endIndex + 1)) {
     layout = buildBlockLayout(layout.block);
     if (!layout) return null;
-    if (isParagraphLastLine(layout, L)) return null;
+    if (isHardLineEnd(layout, L)) return null;
     range = lineItemBounds(layout.items, layout.heads, L);
   }
   var visualEm = lineVisualWidthEm(layout, range.startIndex, range.endIndex);

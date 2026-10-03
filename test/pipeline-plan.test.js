@@ -35,4 +35,17 @@ describe('一行上的步骤和跳过', function () {
     }
     assert.deepEqual(order, ['3@0', '4@0', '5@0', '3@1', '4@1', '5@1', '3@2', '4@2', '5@2', '3@3', '4@3']);
   });
+
+  it('作者 <br> 前一行：与段末相同，不做第 5 步', function () {
+    assert.deepEqual(lineStepPlan(0, 3, { lineEndsBeforeBr: true }), {
+      step3: true,
+      step4: true,
+      step5: false,
+    });
+    assert.deepEqual(lineStepPlan(1, 3, { lineEndsBeforeBr: false }), {
+      step3: true,
+      step4: true,
+      step5: true,
+    });
+  });
 });

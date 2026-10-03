@@ -19,6 +19,13 @@ export function flattenParagraph(block) {
     var tag = node.tagName;
     if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'TEXTAREA' || tag === 'NOSCRIPT') return;
     if (tag === 'RT' || tag === 'RP' || tag === 'RTC') return;
+    if (tag === 'BR') {
+      // 作者 <br>：硬断行界。引擎自插的 br.ts-br 不记入 item 流。
+      if (!(node.classList && node.classList.contains('ts-br'))) {
+        items.push({ type: 'br', el: node });
+      }
+      return;
+    }
     if (node.classList && node.classList.contains('ts-gap')) {
       items.push({ type: 'gap', el: node });
       return;
@@ -158,6 +165,39 @@ export function isParagraphLastLine(layout, L) {
     }
   }
   return false;
+}
+
+/** 行头之前的 item 流里是否夹着作者 <br>（相对上一行头）。 */
+export function lineStartsAfterBrFromHeads(items, heads) {
+  var out = [];
+  for (var L = 0; L < heads.length; L++) {
+    var from = L === 0 ? 0 : heads[L - 1];
+    var to = heads[L];
+    var after = false;
+    for (var i = from; i < to; i++) {
+      if (items[i].type === 'br') {
+        after = true;
+        break;
+      }
+    }
+    out.push(after);
+  }
+  return out;
+}
+
+export function lineEndsBeforeBrFromStarts(lineStartsAfterBr) {
+  var out = [];
+  for (var L = 0; L < lineStartsAfterBr.length; L++) {
+    out.push(L + 1 < lineStartsAfterBr.length ? !!lineStartsAfterBr[L + 1] : false);
+  }
+  return out;
+}
+
+/** 段末，或作者 <br> 前一行：同硬断行尾，不做第 5 / 5′。 */
+export function isHardLineEnd(layout, L) {
+  if (!layout) return false;
+  if (layout.lineEndsBeforeBr && layout.lineEndsBeforeBr[L]) return true;
+  return isParagraphLastLine(layout, L);
 }
 
 export function lineCharsFromItems(items, startIndex, endIndex) {
