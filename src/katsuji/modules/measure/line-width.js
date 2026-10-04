@@ -1,4 +1,4 @@
-/** 量一行视觉宽：DOM 逐字宽 + 空（gap pm）− 半角 span 修正；hang/surplus 用此结果 */
+/** 量一行视觉宽：缝之间连续正文整段 Range + 空（gap pm）− 半角 span 修正；hang/surplus 用此结果 */
 import { win, defaultRoot } from '../env.js';
 import { parseCssLengthToEm } from '../core/dom-util.js';
 import {
@@ -93,6 +93,28 @@ function measureCharGlyphWidthPx(item, emPx, vertical) {
   if (w > 0) return w;
   if (item && isLayoutWhitespace(item.ch)) return 0;
   return emPx;
+}
+
+/** 连续正文（不含缝）首字→末字一条 Range；避免逐字累加在 WebKit 上虚高。 */
+function measureCharRunWidthPx(firstItem, lastItem, emPx, vertical) {
+  if (!firstItem || firstItem.type !== 'char') return 0;
+  if (!lastItem || lastItem.type !== 'char') lastItem = firstItem;
+  if (firstItem === lastItem || (firstItem.node === lastItem.node && firstItem.offset === lastItem.offset)) {
+    return measureCharGlyphWidthPx(firstItem, emPx, vertical);
+  }
+  var documentRef = firstItem.node.ownerDocument;
+  if (!documentRef || !documentRef.createRange) {
+    return measureCharGlyphWidthPx(firstItem, emPx, vertical);
+  }
+  var range = documentRef.createRange();
+  range.setStart(firstItem.node, firstItem.offset);
+  range.setEnd(lastItem.node, lastItem.offset + 1);
+  var w = rectInline(range.getBoundingClientRect(), vertical);
+  if (w > 0) return w;
+  return (
+    measureCharGlyphWidthPx(firstItem, emPx, vertical) +
+    (lastItem === firstItem ? 0 : measureCharGlyphWidthPx(lastItem, emPx, vertical))
+  );
 }
 
 function measureHalfEmCharAdjustPx(items, startIndex, endIndex, emPx, vertical) {
@@ -282,27 +304,70 @@ function measureLineCharsPx(items, startIndex, endIndex, vertical, emPx) {
   var rubySeen = [];
   var name = jukugoName();
   var vert = !!vertical;
-  for (var i = startIndex; i <= endIndex && i < items.length; i++) {
-    if (items[i].type !== 'char') continue;
-    var ruby = charItemRubyEl(items[i]);
+  var i = startIndex;
+  while (i <= endIndex && i < items.length) {
+    var item = items[i];
+    if (item.type === 'gap' || item.type === 'br') {
+      i += 1;
+      continue;
+    }
+    if (item.type !== 'char') {
+      i += 1;
+      continue;
+    }
+    if (isLayoutWhitespace(item.ch)) {
+      i += 1;
+      continue;
+    }
+
+    var ruby = charItemRubyEl(item);
     if (ruby) {
       var wrap = closestJukugoWrapper(ruby, name);
       if (wrap || (rubyHasJukugoAttr(ruby, name) && rubyPairs(ruby).length >= 2)) {
-        var run = wrap
+        var jrun = wrap
           ? contiguousJukugoRunOnLine(ruby, items, startIndex, endIndex, charItemRubyEl, name)
           : [ruby];
-        if (!run.length) run = [ruby];
-        if (run.some(function (r) { return rubySeen.indexOf(r) >= 0; })) continue;
-        for (var ri = 0; ri < run.length; ri++) rubySeen.push(run[ri]);
-        total += jukugoRunWidthPx(run, items[i]);
-        continue;
+        if (!jrun.length) jrun = [ruby];
+        if (!jrun.some(function (r) { return rubySeen.indexOf(r) >= 0; })) {
+          for (var ri = 0; ri < jrun.length; ri++) rubySeen.push(jrun[ri]);
+          total += jukugoRunWidthPx(jrun, item);
+        }
+      } else if (rubySeen.indexOf(ruby) < 0) {
+        rubySeen.push(ruby);
+        total += rubyFragmentWidthPx(ruby, item);
       }
-      if (rubySeen.indexOf(ruby) >= 0) continue;
-      rubySeen.push(ruby);
-      total += rubyFragmentWidthPx(ruby, items[i]);
+      i += 1;
       continue;
     }
-    total += measureCharGlyphWidthPx(items[i], emPx, vert);
+
+    // 半角盒仍按盒内逐字墨宽计入（供 halfAdj 扣回布局宽）；不并进整段 Range
+    var half = charItemHalfSpanEl(item);
+    if (half) {
+      while (i <= endIndex && i < items.length) {
+        if (items[i].type !== 'char') break;
+        if (charItemHalfSpanEl(items[i]) !== half) break;
+        if (!isLayoutWhitespace(items[i].ch)) {
+          total += measureCharGlyphWidthPx(items[i], emPx, vert);
+        }
+        i += 1;
+      }
+      continue;
+    }
+
+    // 缝 / ruby / 半角盒之间的连续正文：一条 Range
+    var first = item;
+    var last = item;
+    i += 1;
+    while (i <= endIndex && i < items.length) {
+      var next = items[i];
+      if (next.type === 'gap' || next.type === 'br') break;
+      if (next.type !== 'char') break;
+      if (charItemRubyEl(next)) break;
+      if (charItemHalfSpanEl(next)) break;
+      if (!isLayoutWhitespace(next.ch)) last = next;
+      i += 1;
+    }
+    total += measureCharRunWidthPx(first, last, emPx, vert);
   }
   return total;
 }

@@ -1893,3 +1893,50 @@ test.describe('Ruby 适配：不扫注音、不切 ruby', function () {
     expect(info.rubyWraps).toBe(0);
   });
 });
+
+test.describe('量宽：连续正文整段 Range', function () {
+  test('无缝汉拉混排：charWidth 贴近首字→末字墨跨度，不大于逐字累加', async function ({ page }) {
+    await openHost(page, 40);
+    await setParagraph(page, '排CSS可以把整块正文切到竖排模式配合');
+    var info = await page.evaluate(() => {
+      var p = document.querySelector('#host p');
+      window.Katsuji.apply(p.parentElement);
+      window.Katsuji.relaxBuiltinLineBreak(p.parentElement);
+      void p.offsetHeight;
+      var layout = window.Katsuji.buildBlockLayout(p);
+      var rr = window.Katsuji.lineItemBounds(layout.items, layout.heads, 0);
+      var m = window.Katsuji.measureLineVisualMetricsPx(p, layout.items, rr.startIndex, rr.endIndex);
+
+      var chars = [];
+      for (var i = rr.startIndex; i <= rr.endIndex; i++) {
+        if (layout.items[i].type !== 'char') continue;
+        if (/\s/.test(layout.items[i].ch)) continue;
+        chars.push(layout.items[i]);
+      }
+      var sum = 0;
+      for (var c = 0; c < chars.length; c++) {
+        var r = document.createRange();
+        r.setStart(chars[c].node, chars[c].offset);
+        r.setEnd(chars[c].node, chars[c].offset + 1);
+        sum += r.getBoundingClientRect().width;
+      }
+      var a = chars[0];
+      var z = chars[chars.length - 1];
+      var span = document.createRange();
+      span.setStart(a.node, a.offset);
+      span.setEnd(z.node, z.offset + 1);
+      var spanPx = span.getBoundingClientRect().width;
+      return {
+        charWidthPx: +m.charWidthPx.toFixed(2),
+        sumPx: +sum.toFixed(2),
+        spanPx: +spanPx.toFixed(2),
+        gapPmPx: +m.gapPmPx.toFixed(2),
+      };
+    });
+    // 无缝时字宽应贴近整段墨跨度
+    expect(Math.abs(info.charWidthPx - info.spanPx)).toBeLessThan(1.5);
+    // 若逐字累加虚高，整段量不得跟着偏肥
+    expect(info.charWidthPx).toBeLessThanOrEqual(info.sumPx + 0.5);
+    expect(info.gapPmPx).toBe(0);
+  });
+});
